@@ -1,0 +1,63 @@
+{
+  "manifest_version": 3,
+  "name": "TOEIC Coach",
+  "version": "0.12.0",
+  "description": "Lộ trình TOEIC 30 ngày quanh Parroto: việc hôm nay, sổ lỗi, tự ghi nhận tiến độ. Dữ liệu chỉ nằm trên máy.",
+  "permissions": [
+    "storage",
+    "unlimitedStorage",
+    "alarms",
+    "notifications",
+    "downloads",
+    "sidePanel",
+    "tabs"
+  ],
+  "host_permissions": [
+    "https://assets.parroto.app/*",
+    "https://parroto.app/*"
+  ],
+  "background": {
+    "service_worker": "sw.js",
+    "type": "module"
+  },
+  "side_panel": {
+    "default_path": "panel/panel.html"
+  },
+  "action": {
+    "default_title": "TOEIC Coach",
+    "default_icon": {
+      "16": "icons/icon16.png",
+      "48": "icons/icon48.png",
+      "128": "icons/icon128.png"
+    }
+  },
+  "icons": {
+    "16": "icons/icon16.png",
+    "48": "icons/icon48.png",
+    "128": "icons/icon128.png"
+  },
+  "content_scripts": [
+    {
+      "matches": [
+        "https://parroto.app/*"
+      ],
+      "js": [
+        "content/parroto.js"
+      ],
+      "run_at": "document_idle"
+    }
+  ],
+  "content_security_policy": {
+    "extension_pages": "script-src 'self' 'wasm-unsafe-eval'; object-src 'self'"
+  },
+  "web_accessible_resources": [
+    {
+      "resources": [
+        "lib/autocode.js"
+      ],
+      "matches": [
+        "https://parroto.app/*"
+      ]
+    }
+  ]
+}

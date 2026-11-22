@@ -1,0 +1,11 @@
+{
+  "version": "0.0.1",
+  "configurations": [
+    {
+      "name": "panel-preview",
+      "runtimeExecutable": "python3",
+      "runtimeArgs": ["-c", "import http.server,functools\nclass H(http.server.SimpleHTTPRequestHandler):\n    def end_headers(self):\n        self.send_header('Cache-Control','no-store')\n        super().end_headers()\nhttp.server.ThreadingHTTPServer(('127.0.0.1',8766),functools.partial(H,directory='/Users/macbook/work/english/extension')).serve_forever()"],
+      "port": 8766
+    }
+  ]
+}

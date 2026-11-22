@@ -1,0 +1,33 @@
+<!doctype html>
+<html lang="vi">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>TOEIC Coach</title>
+  <link rel="stylesheet" href="panel.css">
+</head>
+<body>
+  <header class="top">
+    <div class="brand">TOEIC Coach</div>
+    <div id="dayBadge" class="badge"></div>
+  </header>
+  <nav class="tabs" role="tablist">
+    <button data-tab="today" class="active">Hôm nay</button>
+    <button data-tab="results">Ghi kết quả</button>
+    <button data-tab="errors">Sổ lỗi <span id="dueCount" class="pill hidden"></span></button>
+    <button data-tab="drill">Luyện</button>
+    <button data-tab="stats">Tiến độ</button>
+    <button data-tab="settings">Cài đặt</button>
+  </nav>
+  <main>
+    <section id="tab-today" class="tab active"></section>
+    <section id="tab-results" class="tab"></section>
+    <section id="tab-errors" class="tab"></section>
+    <section id="tab-drill" class="tab"></section>
+    <section id="tab-stats" class="tab"></section>
+    <section id="tab-settings" class="tab"></section>
+  </main>
+  <div id="toast" class="toast hidden"></div>
+  <script type="module" src="panel.js"></script>
+</body>
+</html>

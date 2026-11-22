@@ -1,0 +1,44 @@
+<!doctype html>
+<html lang="vi">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Lời thoại – TOEIC Coach</title>
+  <link rel="stylesheet" href="../panel/panel.css">
+  <style>
+    body { min-width: 0; }
+    .wrap { max-width: 760px; margin: 0 auto; padding: 16px; }
+    .seg { display: grid; grid-template-columns: 64px 1fr; gap: 8px; padding: 6px 8px; border-radius: 6px; cursor: pointer; }
+    .seg:hover { background: var(--accent-soft); }
+    .seg.now { background: var(--accent-soft); outline: 1px solid var(--accent); }
+    .seg .t { color: var(--muted); font-variant-numeric: tabular-nums; font-size: 12px; padding-top: 2px; }
+    .seg .x { font-size: 16px; line-height: 1.5; }
+    .hidden-text .seg .x { filter: blur(6px); }
+    .hidden-text .seg.revealed .x { filter: none; }
+    audio { width: 100%; margin: 8px 0; }
+    .bar { height: 6px; background: var(--line); border-radius: 3px; overflow: hidden; }
+    .bar > div { height: 100%; background: var(--accent); width: 0; transition: width .2s; }
+  </style>
+</head>
+<body>
+  <div class="wrap">
+    <h2 id="title" style="margin-top:0">Lời thoại</h2>
+    <div class="card">
+      <div class="small muted">Chuyển giọng nói thành chữ bằng Whisper chạy ngay trong Chrome (không gửi audio đi đâu). Lần đầu tải mô hình một lần rồi lưu trong trình duyệt. Lời thoại máy nghe có thể sai vài từ — dùng để đối chiếu, không phải bản chính thức.</div>
+      <div style="display:flex;gap:8px;align-items:center;margin-top:8px;flex-wrap:wrap">
+        <select id="model">
+          <option value="Xenova/whisper-tiny.en">Nhanh (tiny, ~40 MB)</option>
+          <option value="Xenova/whisper-base.en">Chính xác hơn (base, ~75 MB)</option>
+        </select>
+        <button class="btn primary" id="go">Tạo lời thoại</button>
+        <label class="small" style="display:flex;gap:4px;align-items:center"><input type="checkbox" id="hide"> Che chữ (nghe trước, bấm từng dòng để mở)</label>
+      </div>
+      <div class="bar" style="margin-top:10px"><div id="bar"></div></div>
+      <div class="small muted" id="status" style="margin-top:4px">Chưa chạy.</div>
+    </div>
+    <audio id="player" controls preload="none"></audio>
+    <div id="segs" class="card"></div>
+  </div>
+  <script type="module" src="transcript.js"></script>
+</body>
+</html>
