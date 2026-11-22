@@ -130,6 +130,20 @@ Khi làm Reading trên Parroto (đề full hoặc chỉ P5–P7, Test/Practice M
 
 **Trên trang kết quả**, mỗi câu sai P3/P4 có dòng **🎧 Luyện kiểu hội thoại này trên Parroto**: 2 bài trong 267 bài TOEIC Listening (dictation + shadowing) cùng chủ đề (khách sạn, giao hàng, tuyển dụng…). Bài bạn chưa đạt 85 điểm được ưu tiên. Extension cần biết danh sách bài: mở trang TOEIC Listening của Parroto một lần là đủ.
 
+## Dạng ngữ pháp cho câu sai Part 5 (v0.16)
+
+- Trên trang kết quả (tab Part 5), mỗi câu sai có dòng **📐 Dạng** gồm tên dạng ngữ pháp và mẹo xử lý trong 15–20 giây. Các dạng: từ loại, thì & bị động, hòa hợp chủ–vị, to-V/V-ing, giới từ vs liên từ, đại từ, mệnh đề quan hệ, so sánh, cặp liên từ, từ vựng. Extension nhận dạng từ câu hỏi và 4 phương án; đo trên kho 300 câu tự soạn đúng 88%.
+- Nút **Luyện 5 câu dạng này** mở panel ở tab mới, vào thẳng 5 câu cùng dạng trong kho luyện P5 của extension (Parroto không có luyện theo dạng ngữ pháp).
+- Dạng của các câu sai trong đề thật được lưu lại. Bài luyện P5 thường (và sprint) tự ưu tiên các dạng bạn sai nhiều trong 21 ngày qua.
+- Tab Tiến độ → Độ chính xác chi tiết: dòng "Part 5 đề thật – dạng sai nhiều nhất".
+
+## Thẻ mẹo thi và quiz mẹo (v0.17)
+
+- Kho **33 mẹo** cho 7 Part (tự viết, dựa trên tài liệu nghiên cứu). Mỗi mẹo gắn với mã lỗi nó giúp sửa, và với dạng ngữ pháp nếu là mẹo P5.
+- **Trên trang làm đề Parroto**, lần đầu bạn vào mỗi Part, góc phải trên hiện thẻ **💡 Mẹo Px** gồm 3 mẹo. Extension chọn theo các lỗi bạn mắc ở Part đó trong 14 ngày qua (mã lỗi, dạng P5), mẹo đã xem nhiều thì nhường chỗ cho mẹo khác. Bấm "Đã hiểu" để thu gọn thành nút 💡, bấm lại để mở.
+- **Tab Luyện → Quiz mẹo thi**: 10 tình huống trong phòng thi, chọn cách xử lý đúng (phím 1–3), xem mẹo sau mỗi câu. Câu sai quay lại theo lịch giãn cách.
+- Ngày tổng kết tuần có thêm việc **Quiz mẹo thi (10 câu)**, tự đánh dấu xong khi làm đủ 10 câu.
+
 ## Quy tắc tự điều chỉnh (từ ngày 9)
 
 | Điều kiện (7 ngày qua) | Điều chỉnh |

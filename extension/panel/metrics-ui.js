@@ -9,6 +9,7 @@ import { CODES } from '../lib/constants.js';
 import { formatVN } from '../lib/dates.js';
 import { savedFromErrors } from '../lib/vocab.js';
 import { summarize, mmss } from '../lib/pace.js';
+import { realP5Wrong } from '../lib/p5type.js';
 
 const esc = (s) => String(s ?? '').replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
 const pct = (r) => (r == null ? '–' : Math.round(r * 100) + '%');
@@ -58,6 +59,10 @@ export function renderMetrics(db, d) {
   html += `<div class="card"><h3 style="margin-top:0">Độ chính xác chi tiết (14 ngày)</h3>
     <div class="small muted">Dạng yếu nhất ở từng bài luyện (≥ 3 câu):</div>
     <table><tr><th>Part 5 – dạng ngữ pháp</th><th class="num">Đúng</th><th class="num">Câu</th></tr>${worst(A.p5, P5_CATS) || '<tr><td class="muted">chưa đủ dữ liệu</td></tr>'}</table>
+    ${(() => {
+      const w = Object.entries(realP5Wrong(db, d)).sort((a, b) => b[1] - a[1]);
+      return w.length ? `<div class="small" style="margin-top:6px">Part 5 đề thật (21 ngày) – dạng sai nhiều nhất: ${w.slice(0, 5).map(([c, n]) => `<b>${esc(P5_CATS[c] || c)}</b> ${n}`).join(' · ')}. Luyện P5 tự ưu tiên các dạng này.</div>` : '<div class="small muted" style="margin-top:6px">Part 5 đề thật: mở trang kết quả đề trên Parroto (tab Part 5) để extension nhận dạng dạng câu sai.</div>';
+    })()}
     <table style="margin-top:6px"><tr><th>Part 2 – nhận diện bẫy</th><th class="num">Đúng</th><th class="num">Lần</th></tr>${worst(A.traps, Object.fromEntries(Object.entries(P2_TRAPS).map(([k, v]) => [k, v.name]))) || '<tr><td class="muted">chưa đủ dữ liệu</td></tr>'}</table>
     <table style="margin-top:6px"><tr><th>Part 6/7 – dạng câu (mô phỏng)</th><th class="num">Đúng</th><th class="num">Câu</th></tr>${worst(A.reading, Q_TYPES) || '<tr><td class="muted">chưa đủ dữ liệu</td></tr>'}</table>
     <table style="margin-top:6px"><tr><th>Part 3/4 – nhớ câu hỏi</th><th class="num">Đúng</th><th class="num">Câu</th></tr>${worst(A.focus, FOCUS) || '<tr><td class="muted">chưa đủ dữ liệu</td></tr>'}</table>

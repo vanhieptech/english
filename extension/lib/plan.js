@@ -388,6 +388,8 @@ export function buildDay(db, dateISO) {
   }
 
   if (plan.weekly) {
+    const tipN = countToday(db.drill?.log || [], 'tip', dateISO);
+    add({ id: 'tipquiz', time: addMin(ev, 30), title: 'Quiz mẹo thi (10 câu)', detail: 'Tab Luyện → Quiz mẹo thi. Câu sai quay lại theo lịch giãn cách.', minutes: 5, tab: 'drill', autoDone: tipN >= 10, progress: `${Math.min(tipN, 10)}/10` });
     add({ id: 'weekly', time: addMin(ev, 35), title: 'Tổng kết tuần (45 phút)', detail: 'Mở Exam History trên Parroto, xem tab Tiến độ: lỗi theo mã × Part, áp quy tắc điều chỉnh cho tuần sau.', minutes: 45, tab: 'stats', link: LINKS.exams, linkLabel: 'Mở Parroto' });
   }
 

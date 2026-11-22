@@ -356,6 +356,9 @@
   import(chrome.runtime.getURL('lib/autocode.js')).then((m) => { autocode = m; }).catch(() => {});
   let tcStore = { errors: [], autoResults: [], review: {}, lessons: {} };
   let listen = null;
+  let p5type = null;
+  import(chrome.runtime.getURL('lib/p5type.js')).then((m) => { p5type = m; }).catch(() => {});
+  const p5catSent = new Set();
   import(chrome.runtime.getURL('lib/listen.js')).then((m) => { listen = m; }).catch(() => {});
   function loadStore() {
     try {
@@ -460,6 +463,12 @@
     if (shortOpts.length && (!redo.on || redo.answered[q])) {
       html += `<div class="words" style="margin-top:6px">📖 Tra & lưu vào Parroto: ${shortOpts.map((o) => `<button data-tct="word" data-w="${o.text.replace(/"/g, '')}">${o.text.replace(/</g, '&lt;')}</button>`).join(' ')} <span style="opacity:.7">· hoặc bôi đen từ bất kỳ trong câu/giải thích</span></div>`;
     }
+    if (part === 'P5' && p5type && opts.length === 4 && (!redo.on || redo.answered[q])) {
+      const stem = block.innerText.split('\n').map((x) => x.trim()).find((x) => /_{2,}/.test(x)) || '';
+      const cat = p5type.classifyP5(stem, opts.map((o) => o.text));
+      if (!p5catSent.has(`${session}|${q}`)) { p5catSent.add(`${session}|${q}`); send({ type: 'review', session, items: [{ q, cat }] }); }
+      html += `<div style="margin-top:6px">📐 Dạng: <b>${p5type.P5_CATS[cat]}</b> – ${p5type.P5_TIPS[cat]} <button data-tct="drill" data-cat="${cat}">Luyện 5 câu dạng này</button></div>`;
+    }
     if ((part === 'P3' || part === 'P4') && listen && (!redo.on || redo.answered[q])) {
       const lessons = Object.values(tcStore.lessons || {});
       const pick = listen.matchLessons(block.innerText, lessons, 2);
@@ -472,6 +481,10 @@
       if (!b) return;
       e.preventDefault();
       e.stopPropagation();
+      if (b.dataset.tct === 'drill') {
+        send({ type: 'openDrill', kind: 'p5', focus: b.dataset.cat, n: 5 });
+        return;
+      }
       if (b.dataset.tct === 'word') {
         const err2 = errorFor(session, q);
         pendingWord = { word: b.dataset.w, session, q, part, code: err2 ? err2.code : null, at: Date.now() };
@@ -828,6 +841,51 @@
     }
   }
   setInterval(listenTick, 1000);
+
+  // ---- Tip card when you enter a Part on the exam-taking page (3 tips matched to your mistakes) ----
+  let tipsMod = null;
+  import(chrome.runtime.getURL('lib/tips.js')).then((m) => { tipsMod = m; }).catch(() => {});
+  const tipState = { key: null, open: false };
+
+  function tipTick() {
+    const m = location.pathname.match(/^\/exams\/toeic\/session\/([^/]+)\/?$/);
+    const old = document.getElementById('tc-tips');
+    if (!m || !tipsMod) { if (old) old.remove(); return; }
+    const { cur } = navState();
+    if (!cur) return;
+    const part = tipsMod.partOfQ(cur);
+    const key = `${m[1]}|${part}`;
+    if (tipState.key === key && old) return;
+    let shown = false;
+    try { shown = sessionStorage.getItem('tc:tip:' + key) === '1'; } catch { /* storage blocked */ }
+    tipState.key = key;
+    tipState.open = !shown;
+    let seen = {};
+    try { seen = JSON.parse(localStorage.getItem('tc:tipsSeen') || '{}'); } catch { /* storage blocked */ }
+    const list = tipsMod.tipsFor(part, { errors: tcStore.errors, review: tcStore.review }, todayStr(), 3, seen);
+    if (!shown) {
+      for (const t of list) seen[t.id] = (seen[t.id] || 0) + 1;
+      try { localStorage.setItem('tc:tipsSeen', JSON.stringify(seen)); sessionStorage.setItem('tc:tip:' + key, '1'); } catch { /* storage blocked */ }
+    }
+    const box = old || document.createElement('div');
+    box.id = 'tc-tips';
+    box.style.cssText = 'position:fixed;right:16px;top:64px;z-index:2147483000;max-width:360px;padding:10px 12px;border-radius:10px;border:1px solid #f59e0b;background:rgba(40,28,8,.95);color:#fef3c7;font:12.5px/1.5 -apple-system,Segoe UI,sans-serif;box-shadow:0 4px 14px rgba(0,0,0,.35)';
+    const render = () => {
+      box.innerHTML = tipState.open
+        ? `<div style="display:flex;justify-content:space-between;gap:8px"><b>💡 Mẹo ${part}</b><button data-tip="close" style="background:none;border:1px solid #f59e0b;color:inherit;border-radius:6px;cursor:pointer;padding:0 8px">Đã hiểu</button></div>${list.map((t) => `<div style="margin-top:6px">• ${t.text.replace(/</g, '&lt;')}${t.why ? ` <span style="opacity:.7">(${t.why})</span>` : ''}</div>`).join('')}`
+        : `<button data-tip="open" style="background:none;border:none;color:inherit;cursor:pointer;font:inherit;padding:0">💡 ${part}</button>`;
+      box.style.padding = tipState.open ? '10px 12px' : '4px 10px';
+    };
+    box.onclick = (e) => {
+      const b = e.target.closest('button[data-tip]');
+      if (!b) return;
+      tipState.open = b.dataset.tip === 'open';
+      render();
+    };
+    render();
+    if (!old) document.body.appendChild(box);
+  }
+  setInterval(tipTick, 1000);
 
   // ---- Exam history: /exams/toeic/history ----
   function parseHistory() {

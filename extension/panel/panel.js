@@ -13,7 +13,7 @@ import { renderMetrics } from './metrics-ui.js';
 import { lineChart, barChart, rateBars } from '../lib/charts.js';
 import { weekCompare } from '../lib/rules.js';
 import { newWordsOn, reviewsOn, vocabDay } from '../lib/vocab.js';
-import { initDrill, renderDrill, handleClick as drillClick, handleKey as drillKey, stopDrillMedia, resumeDrill } from './drill-ui.js';
+import { initDrill, renderDrill, handleClick as drillClick, handleKey as drillKey, stopDrillMedia, resumeDrill, startExternal } from './drill-ui.js';
 
 // Saving can fail when this page was left open while the extension was reloaded.
 function showSaveError(msg) {
@@ -767,6 +767,14 @@ async function load() {
   db = await store.getAll();
   applyDiagnoses();
   if (!db.settings.examDate) currentTab = 'settings';
+  // Opened from a button on Parroto (e.g. "Luyện 5 câu dạng này"): go straight to that drill.
+  const qp = new URLSearchParams(location.search);
+  if (qp.get('drill') && !ui.externalStarted) {
+    ui.externalStarted = true;
+    switchTab('drill');
+    startExternal(qp.get('drill'), { focus: qp.get('focus') || '', n: Number(qp.get('n') || 5) });
+    return;
+  }
   switchTab(currentTab);
 }
 

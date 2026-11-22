@@ -3,6 +3,7 @@
 import * as store from '../lib/store.js';
 import { today, addDays } from '../lib/dates.js';
 import { P5, P5_CATS } from '../data/p5.js';
+import { realP5Wrong } from '../lib/p5type.js';
 import { P2, P2_TRAPS, P2_TYPES } from '../data/p2.js';
 import { pick, record, groupAccuracy, countToday, shuffle, P5_SECONDS, wrongToday } from '../lib/drill.js';
 import { initExtra, extraActive, renderExtra, renderExtraLauncher, extraClick, extraKey, stopExtra, resumeExtra } from './drill-extra.js';
@@ -99,6 +100,13 @@ function weakestGroup(log, kind, d) {
   return list.length ? list[0][0] : null;
 }
 
+// Extra weight for Part 5 types you got wrong in real Parroto tests in the last 21 days.
+function realP5Boost(db, d) {
+  const out = {};
+  for (const [c, n] of Object.entries(realP5Wrong(db, d))) out[c] = Math.min(2, n * 0.3);
+  return out;
+}
+
 // opts: { n, focus, ids (explicit items), chain: [steps], label }
 function start(kind, opts = {}) {
   const db = ctx.getDb();
@@ -122,7 +130,7 @@ function start(kind, opts = {}) {
   } else {
     const n = opts.n || (kind === 'p5' ? prefs.p5n : 10);
     const focus = opts.focus !== undefined ? opts.focus || undefined : kind === 'p5' ? prefs.p5cat || undefined : undefined;
-    items = pick(bank, db.drill, d, n, { focus, accuracy });
+    items = pick(bank, db.drill, d, n, { focus, accuracy, boost: kind === 'p5' ? realP5Boost(db, d) : undefined });
   }
   if (!items.length) { ctx.toast('Không có câu nào cho phần này.'); return; }
   session = {
@@ -137,6 +145,12 @@ function start(kind, opts = {}) {
     phase: 'ask',
   };
   beginItem();
+}
+
+// Started from outside the drill tab (a button on Parroto's result page).
+export function startExternal(kind, { focus = '', n = 5 } = {}) {
+  const name = kind === 'p5' && focus ? P5_CATS[focus] : '';
+  start(kind, { n, focus: focus || '', fromChain: true, src: 'parroto', label: name ? `Từ câu sai trên Parroto · ${name}` : 'Từ câu sai trên Parroto' });
 }
 
 // Weakness sprint: weakest Part 5 type + weakest Part 2 question type, back to back.

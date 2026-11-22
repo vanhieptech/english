@@ -8,6 +8,7 @@ import { pick, record, groupAccuracy, countToday, shuffle } from '../lib/drill.j
 import { MODES } from '../lib/sim.js';
 import { pendingPrompts, hints, CHECKLIST } from '../lib/writing.js';
 import { ANTO } from '../data/topics.js';
+import { TIPS } from '../lib/tips.js';
 
 const esc = (s) => String(s ?? '').replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
 const pct = (r) => (r == null ? '–' : Math.round(r * 100) + '%');
@@ -60,6 +61,11 @@ export function renderExtraLauncher(db) {
         </div>
         ${mine.length ? `<div class="small" style="margin-top:6px">${mine.slice(-8).reverse().map((p) => `<div>${esc(p.a)} ↔ ${esc(p.b)} <button class="link" data-xdelpair="${p.id}">xóa</button></div>`).join('')}</div>` : ''}
       </details>
+    </div>
+    <h2>Quiz mẹo thi</h2>
+    <div class="card">
+      <div class="small muted">10 tình huống trong phòng thi, chọn cách xử lý đúng; sai thì câu quay lại vào ngày mai (lặp giãn cách). ${TIPS.length} mẹo cho 7 Part; trên trang làm đề Parroto, mỗi Part cũng hiện 3 mẹo hợp với lỗi bạn hay mắc. Hôm nay: <b>${countToday(log, 'tip', d)}</b> câu.</div>
+      <button class="btn primary" data-xstart="tipq" style="margin-top:8px">Bắt đầu (10 câu)</button>
     </div>
     <h2>Trái nghĩa & mindmap <span class="muted small">(bổ trợ)</span></h2>
     <div class="card">
@@ -269,22 +275,68 @@ async function gradeWrite(pass) {
   ctx.rerender();
 }
 
+// ---------- Exam-tip quiz ----------
+function startTipQuiz() {
+  const db = ctx.getDb();
+  const d = today();
+  const bank = TIPS.map((t) => ({ ...t, group: t.part }));
+  const items = pick(bank, db.drill, d, 10, { accuracy: groupAccuracy(db.drill?.log || [], 'tip', addDays(d, -13), d) });
+  s = { kind: 'tipq', items, i: 0, results: [] };
+  beginTip();
+}
+
+function beginTip() {
+  const t = s.items[s.i];
+  s.phase = 'ask';
+  s.pickIdx = null;
+  s.opts = shuffle([t.quiz.a, ...t.quiz.w]);
+  ctx.rerender();
+}
+
+async function answerTip(idx) {
+  if (s.phase !== 'ask') return;
+  const t = s.items[s.i];
+  const ok = s.opts[idx] === t.quiz.a;
+  s.pickIdx = idx;
+  s.phase = 'review';
+  s.results.push(ok);
+  await store.update('drill', (dr) => record(dr, { kind: 'tip', id: t.id, cat: t.part, correct: ok, date: today() }));
+  ctx.rerender();
+}
+
+function renderTip() {
+  const t = s.items[s.i];
+  let html = `<div class="small muted">Câu ${s.i + 1}/${s.items.length} · ${t.part}</div><div class="card" style="margin-top:6px"><b>${esc(t.quiz.q)}</b></div>`;
+  html += s.opts.map((o, n) => {
+    const mark = s.phase === 'review' ? (o === t.quiz.a ? ' style="display:block;width:100%;text-align:left;margin-bottom:6px;padding:8px 10px;border-color:var(--ok, #16a34a)"' : n === s.pickIdx ? ' style="display:block;width:100%;text-align:left;margin-bottom:6px;padding:8px 10px;border-color:var(--bad, #dc2626)"' : ' style="display:block;width:100%;text-align:left;margin-bottom:6px;padding:8px 10px;opacity:.6"') : ' style="display:block;width:100%;text-align:left;margin-bottom:6px;padding:8px 10px"';
+    return `<button class="btn" data-xtip="${n}"${mark} ${s.phase === 'review' ? 'disabled' : ''}>${n + 1}. ${esc(o)}</button>`;
+  }).join('');
+  if (s.phase === 'review') {
+    const ok = s.opts[s.pickIdx] === t.quiz.a;
+    html += `<div class="card small" style="margin-top:6px">${ok ? '✓ Đúng.' : '✗ Chưa đúng.'} <b>Mẹo:</b> ${esc(t.text)}</div>
+      <button class="btn primary" data-xnext="1">${s.i + 1 < s.items.length ? 'Câu tiếp (Enter)' : 'Xem kết quả'}</button>`;
+  }
+  return html;
+}
+
 // ---------- shared ----------
 function renderSummary() {
   const ok = s.results.filter(Boolean).length;
-  const what = s.kind === 'p34' ? 'câu hỏi nhớ đúng' : s.kind === 'write' ? 'câu tự chấm đạt' : 'cặp nối đúng ngay lần đầu';
+  const what = s.kind === 'tipq' ? 'tình huống xử lý đúng' : s.kind === 'p34' ? 'câu hỏi nhớ đúng' : s.kind === 'write' ? 'câu tự chấm đạt' : 'cặp nối đúng ngay lần đầu';
   return `<h2>Xong: ${ok}/${s.results.length} ${what}</h2>
-    <div class="card small">${s.kind === 'write' ? 'Câu chưa đạt sẽ quay lại vào ngày mai; câu đạt quay lại sau 3, 7, 16 ngày để bạn viết câu mới khác.' : s.kind === 'p34' ? 'Mẹo: khi nghe, chỉ cần canh đúng loại thông tin mỗi câu hỏi cần (thời gian, lý do, đề nghị…). Đáp án thường xuất hiện theo thứ tự câu hỏi.' : 'Cặp sai sẽ quay lại vào ngày mai; cặp đúng quay lại sau 3, 7, 16 ngày. Thêm cặp từ chính câu sai của bạn để nhớ lâu hơn.'}</div>
+    <div class="card small">${s.kind === 'tipq' ? 'Câu sai quay lại vào ngày mai; câu đúng quay lại sau 3, 7, 16 ngày. Trên trang làm đề Parroto, thẻ 💡 nhắc lại 3 mẹo hợp với lỗi bạn hay mắc khi bạn vào mỗi Part.' : s.kind === 'write' ? 'Câu chưa đạt sẽ quay lại vào ngày mai; câu đạt quay lại sau 3, 7, 16 ngày để bạn viết câu mới khác.' : s.kind === 'p34' ? 'Mẹo: khi nghe, chỉ cần canh đúng loại thông tin mỗi câu hỏi cần (thời gian, lý do, đề nghị…). Đáp án thường xuất hiện theo thứ tự câu hỏi.' : 'Cặp sai sẽ quay lại vào ngày mai; cặp đúng quay lại sau 3, 7, 16 ngày. Thêm cặp từ chính câu sai của bạn để nhớ lâu hơn.'}</div>
     <div style="display:flex;gap:6px"><button class="btn primary" data-xstart="${s.kind}">Làm thêm</button><button class="btn" data-xquit="1">Về tab Luyện</button></div>`;
 }
 
 export function renderExtra(el) {
   if (s.done) { el.innerHTML = renderSummary(); return; }
-  el.innerHTML = `<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px"><b>${{ p34: 'Đọc nhanh câu hỏi P3/4', para: 'Paraphrase', write: 'Viết câu tự chấm', anto: 'Trái nghĩa' }[s.kind]}</b><button class="link" data-xquit="1">Dừng</button></div>` + (s.kind === 'p34' ? renderFlash() : s.kind === 'write' ? renderWrite() : renderPara());
+  el.innerHTML = `<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px"><b>${{ p34: 'Đọc nhanh câu hỏi P3/4', para: 'Paraphrase', write: 'Viết câu tự chấm', anto: 'Trái nghĩa', tipq: 'Quiz mẹo thi' }[s.kind]}</b><button class="link" data-xquit="1">Dừng</button></div>` + (s.kind === 'tipq' ? renderTip() : s.kind === 'p34' ? renderFlash() : s.kind === 'write' ? renderWrite() : renderPara());
 }
 
 function nextStep() {
-  if (s.kind === 'p34') {
+  if (s.kind === 'tipq') {
+    if (s.i + 1 < s.items.length) { s.i++; beginTip(); } else { s.done = true; ctx.rerender(); }
+  } else if (s.kind === 'p34') {
     if (s.i + 1 < s.sets.length) { s.i++; beginRead(); } else { s.done = true; ctx.rerender(); }
   } else if (s.r + 1 < s.rounds.length) { s.r++; beginRound(); } else { s.done = true; ctx.rerender(); }
 }
@@ -297,6 +349,8 @@ export function extraClick(t) {
     return true;
   }
   if (t.dataset.xstart === 'p34') { startFlash(); return true; }
+  if (t.dataset.xstart === 'tipq') { startTipQuiz(); return true; }
+  if (t.dataset.xtip != null && s?.kind === 'tipq') { answerTip(Number(t.dataset.xtip)); return true; }
   if (t.dataset.xstart === 'para') { startPara('para'); return true; }
   if (t.dataset.xstart === 'anto') { startPara('anto'); return true; }
   if (t.dataset.xstart === 'write') { startWrite(); return true; }
@@ -341,7 +395,8 @@ export function extraClick(t) {
 
 export function extraKey(e) {
   if (!s || s.done) return false;
-  if (e.key === 'Enter' && ((s.kind === 'p34' && s.phase === 'review') || ((s.kind === 'para' || s.kind === 'anto') && Object.keys(s.matched).length === s.left.length))) { nextStep(); return true; }
+  if (s.kind === 'tipq' && s.phase === 'ask' && /^[1-3]$/.test(e.key)) { answerTip(Number(e.key) - 1); return true; }
+  if (e.key === 'Enter' && ((s.kind === 'tipq' && s.phase === 'review') || (s.kind === 'p34' && s.phase === 'review') || ((s.kind === 'para' || s.kind === 'anto') && Object.keys(s.matched).length === s.left.length))) { nextStep(); return true; }
   if (s.kind === 'p34' && s.phase === 'quiz' && /^[1-4]$/.test(e.key)) { answerFlash(s.choices[s.j][Number(e.key) - 1]); return true; }
   return false;
 }

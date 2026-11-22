@@ -181,6 +181,9 @@ chrome.runtime.onMessage.addListener((msg, sender, sendResponse) => {
     serial(() => store.update('pace', (all) => ({ ...all, [msg.session]: { ...(all[msg.session] || {}), date: all[msg.session]?.date || d, start: msg.start, scale: msg.scale, qSecs: msg.qSecs, groups: msg.groups || all[msg.session]?.groups || null } })));
   } else if (msg.type === 'listenPace') {
     serial(() => store.update('pace', (all) => ({ ...all, [msg.session]: { ...(all[msg.session] || { date: d }), listen: { ...(all[msg.session]?.listen || {}), ...msg.sets } } })));
+  } else if (msg.type === 'openDrill') {
+    const q = new URLSearchParams({ drill: msg.kind, focus: msg.focus || '', n: String(msg.n || 5) });
+    chrome.tabs.create({ url: chrome.runtime.getURL('panel/panel.html') + '?' + q.toString() });
   } else if (msg.type === 'vocabSave') {
     serial(() => store.update('vocab', (v) => ({ ...v, saved: addSaved(v.saved, msg, d) })));
   } else if (msg.type === 'vocabRate') {

@@ -609,3 +609,44 @@ test('P3/P4: question focus, topics, lesson matching', async () => {
   assert.ok(!m.some((l) => l.title === 'Rush Hour Gridlock'));
   assert.equal(matchLessons('The package delivery was delayed again.', lessons)[0].title, 'Delayed Delivery Dilemma');
 });
+
+test('P5 grammar type: ≥ 85% on the drill bank and real Parroto items', async () => {
+  const { classifyP5, P5_TIPS } = await import('../lib/p5type.js');
+  const { P5, P5_CATS } = await import('../data/p5.js');
+  const ok = P5.filter((q) => classifyP5(q.s, q.o) === q.cat).length;
+  assert.ok(ok / P5.length >= 0.85, `accuracy ${ok}/${P5.length}`);
+  for (const k of Object.keys(P5_CATS)) assert.ok(P5_TIPS[k], k);
+  assert.equal(classifyP5("Edison Delivery's trucks leave the warehouse promptly _______ 6:00 A.M. each morning.", ['at', 'on', 'for', 'with']), 'prepconj');
+  assert.equal(classifyP5('A _______ copy of the rental agreement for the apartment has been delivered to the main office.', ['signature', 'sign', 'signs', 'signed']), 'wordform');
+});
+
+test('P5 wrong types from real tests feed the drill boost', async () => {
+  const { realP5Wrong } = await import('../lib/p5type.js');
+  const d = db({ results: [{ session: 's1', date: '2026-11-20', wrongQs: [101, 102, 140], skippedQs: [103] }, { session: 'old', date: '2026-10-01', wrongQs: [101] }],
+    review: { s1: { 101: { cat: 'wordform' }, 102: { cat: 'wordform' }, 103: { cat: 'prepconj' }, 140: { cat: 'vocab' } }, old: { 101: { cat: 'tense' } } } });
+  assert.deepEqual(realP5Wrong(d, '2026-11-22'), { wordform: 2, prepconj: 1 });
+});
+
+test('exam tips: every part covered, picks follow your mistakes', async () => {
+  const { TIPS, tipsFor } = await import('../lib/tips.js');
+  for (const p of ['P1', 'P2', 'P3', 'P4', 'P5', 'P6', 'P7']) assert.ok(TIPS.filter((t) => t.part === p).length >= 3, p);
+  assert.equal(new Set(TIPS.map((t) => t.id)).size, TIPS.length);
+  for (const t of TIPS) assert.ok(t.quiz.q && t.quiz.a && t.quiz.w.length === 2 && !t.quiz.w.includes(t.quiz.a), t.id);
+  const day = '2026-11-22';
+  const data = { errors: [
+    { part: 'P5', code: 'G', date: day, srcKey: 's|101' }, { part: 'P5', code: 'G', date: day, srcKey: 's|102' },
+    { part: 'P7', code: 'T', date: day }, { part: 'P7', code: 'T', date: day }, { part: 'P7', code: 'T', date: day },
+  ], review: { s: { 101: { cat: 'prepconj' }, 102: { cat: 'prepconj' } } } };
+  assert.equal(tipsFor('P5', data, day)[0].id, 'p5-prepconj');
+  const p7 = tipsFor('P7', data, day).map((t) => t.id);
+  assert.ok(p7.includes('p7-budget') && p7.includes('p7-questions'));
+  // Rotation: a tip already shown many times drops.
+  assert.notEqual(tipsFor('P5', data, day, 1, { 'p5-prepconj': 10 })[0].id, 'p5-prepconj');
+});
+
+test('weekly review day includes the tip quiz', () => {
+  const days = [];
+  for (let n = 1; n <= 30; n++) { const r = buildDay(db(), dateForDay(n, EXAM)); if (r.tasks.some((t) => t.id === 'weekly')) days.push(r); }
+  assert.ok(days.length >= 3);
+  for (const r of days) assert.ok(r.tasks.some((t) => t.id === 'tipquiz'));
+});
