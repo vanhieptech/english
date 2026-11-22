@@ -4,7 +4,7 @@ import { planDay, addDays } from './dates.js';
 import { LINKS, SETS, setName, LISTENING_PARTS, READING_PARTS, PART_SIZE } from './constants.js';
 import { adjustments, weakestPart, dueErrors, weekSummary } from './rules.js';
 import { countToday, wrongToday, countSrcToday } from './drill.js';
-import { vocabDay, newWordsOn, reviewsOn } from './vocab.js';
+import { vocabDay, newWordsOn, reviewsOn, savedFromErrors } from './vocab.js';
 import { pendingPrompts } from './writing.js';
 
 // L / R: parts to drill ('weak' = weakest part of that section), or a special string.
@@ -368,6 +368,15 @@ export function buildDay(db, dateISO) {
         id: 'write', time: addMin(st, 160), title: `Viết câu tự chấm (${target} câu)`,
         detail: 'Tab Luyện → Viết câu tự chấm. Mỗi lỗi V/G và câu Part 5 làm sai: viết 1 câu mới, tự chấm theo 4 tiêu chí.',
         minutes: 5, tab: 'drill', autoDone: wDone >= target, progress: `${wDone}/${target}`,
+      });
+    }
+    const errWords = savedFromErrors(db, dateISO);
+    if (errWords.length) {
+      add({
+        id: 'errwords', time: addMin(ev, 20), title: `Ôn ${errWords.length} từ lưu từ câu sai (My vocabulary)`,
+        detail: 'Trên Parroto → My vocabulary: chế độ FLASHCARD một lượt, rồi WRITE (tự gõ ra từ) một lượt. Từ lưu bằng cách bôi đen từ trong câu sai trên trang kết quả.',
+        minutes: 8, link: LINKS.myVocabulary, linkLabel: 'Mở My vocabulary', autoDone: sec(db, dateISO, 'myvocab') >= 300,
+        progress: `${Math.min(5, Math.floor(sec(db, dateISO, 'myvocab') / 60))}/5 phút`,
       });
     }
     const gameSec = sec(db, dateISO, 'games');

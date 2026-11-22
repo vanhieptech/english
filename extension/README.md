@@ -94,9 +94,41 @@ Trong ô "Chẩn đoán nghe", nút **📝 Lời thoại đầy đủ (Whisper)*
 Trên trang kết quả, phía trên các tab Part có thanh **TOEIC Coach**:
 - **Làm lại câu sai của Part này (n)**: các câu sai / bỏ trống bị che màu đáp án, icon đúng/sai và làm mờ lời giải thích; bạn chọn lại A–D ngay dưới câu (dùng chính đề và đáp án của Parroto). Chọn xong hiện đúng/sai, mở lại lời giải thích, và tính là một lần làm lại trong lịch +2 / +7 ngày (nếu câu đã có mã lỗi).
 - Dưới mỗi câu sai: hàng nút **V G A D P I T C Q**, mã gợi ý viền xanh kèm lý do, mã hiện tại tô xanh. Bấm là lưu, không cần mở panel.
+- (v0.12.1) Nếu bạn làm lại một câu chưa có mã rồi mới bấm mã, lần làm đó vẫn được ghi vào lịch. Dòng dưới đáp án nói rõ "Đã ghi" hay "Chưa lưu".
 - Thanh hiện số câu đã gắn mã và số câu của đề này đến hạn làm lại hôm nay.
 - Tab Sổ lỗi → "Đến hạn làm lại": nút **Làm lại trên Parroto** mở thẳng trang kết quả của lần làm đó.
 - Bài luyện tự soạn (300 câu P5, 150 câu P2…) vẫn dùng để luyện nhanh theo dạng yếu; phần làm lại lỗi dùng đề thật của Parroto.
+
+## Lưu từ trong câu sai vào My vocabulary của Parroto (v0.13)
+
+Không có sổ từ riêng: từ được lưu vào **My vocabulary** của chính Parroto, nơi đã có sẵn 3 kiểu ôn LIST / FLASHCARD / WRITE.
+- Trên trang kết quả, khung TOEIC Coach của mỗi câu sai có hàng **📖 Tra & lưu vào Parroto** với các đáp án ngắn (P5/P6). Cần hàng này vì các đáp án trên trang Review là nút bị khoá, không bôi đen được.
+- Hoặc **bôi đen** 1–4 từ trong câu hỏi, lời thoại hay lời giải thích → bấm nút nổi "Tra & lưu".
+- Extension mở hộp **Dictionary** của Parroto và điền sẵn từ. Bạn tự chọn đúng nghĩa rồi bấm **Save**: extension không bấm Save thay bạn.
+- Mỗi lần Save, extension ghi lại từ, nghĩa, và từ câu nào, Part nào, mã lỗi gì (lưu trong `vocab.saved`).
+- Hôm nào có từ lưu từ câu sai trong 14 ngày qua, lịch có việc **Ôn N từ lưu từ câu sai**: mở My vocabulary, làm FLASHCARD rồi WRITE. Việc tự đánh dấu xong khi bạn ở trang My vocabulary đủ 5 phút.
+- Tab Tiến độ → Trí nhớ & sửa lỗi: số từ đã lưu, chia theo mã lỗi, và các từ gần nhất.
+
+## Mốc giờ Reading và tốc độ P7 (v0.14)
+
+Khi làm Reading trên Parroto (đề full hoặc chỉ P5–P7, Test/Practice Mode), góc trái dưới có khung **⏱ TOEIC Coach**:
+- Dùng chính đồng hồ đếm ngược của Parroto. Reading bắt đầu tính khi bạn mở câu ≥ 101; tạm dừng đề thì đồng hồ của khung cũng dừng.
+- Mốc: **P5 xong ở 11:00, P6 ở 20:00, P7 dùng 55 phút còn lại**. Nếu lúc vào Reading còn ít hơn 75 phút, các mốc tự co lại theo tỷ lệ.
+- Dòng thứ hai báo bạn đang **nhanh/chậm bao nhiêu** so với kế hoạch, và lẽ ra đang ở câu nào. Màu xanh là ổn, vàng là chậm tới 3 phút, đỏ là chậm hơn 3 phút.
+- Ở P7, mỗi đoạn có **ngân sách riêng** tính theo số câu và loại đoạn (đơn/kép/ba; extension đọc số ảnh của đoạn trên trang). Vượt ngân sách thì khung chuyển đỏ và nhắc "đoán câu khó, sang đoạn sau".
+- Quá mốc P5 hoặc P6 mà vẫn đang ở Part đó thì khung nhắc chuyển Part.
+- Bấm vào khung để thu gọn thành một số "⏱ +1:20".
+- Số giây từng câu được gửi về extension (`pace`). Tab Tiến độ → Tốc độ & sức bền hiện giây/câu P5/P6/P7 của 4 đề gần nhất (mục tiêu P5 ≤ 22, P6 ≤ 34, P7 ≤ 61) và các đoạn P7 bị vượt ngân sách.
+
+## Huấn luyện Part 3/4 ngay trên Parroto (v0.15)
+
+**Khi làm P3/P4** (mỗi bộ 3 câu có audio riêng), góc trái dưới có khung **🎧 TOEIC Coach**:
+- **Trước khi bấm phát:** khung nhắc đọc trước 3 câu hỏi, đếm số giây đọc (thi thật có khoảng 20–30 giây), và nói từng câu cần nghe gì. Ví dụ "việc sắp làm → câu cuối: I'll…, Let me…" hoặc "vấn đề → sau but, unfortunately". Extension tự nhận ra loại câu hỏi.
+- **Đang nghe:** đáp án đi theo thứ tự, khung cho biết bạn đang ở khoảng của câu nào. Nhắc: nghe được đáp án câu sau thì đoán ngay câu trước.
+- **Nghe xong:** nhắc chọn ngay (thi thật khoảng 8 giây/câu) rồi đọc trước bộ sau. Nếu bạn nghe lại một bộ trong lúc làm đề, khung nhắc rằng thi thật chỉ nghe một lần.
+- Số lần nghe lại và số giây đọc trước của từng bộ được lưu. Tab Tiến độ có dòng "Nghe P3/P4 trên Parroto".
+
+**Trên trang kết quả**, mỗi câu sai P3/P4 có dòng **🎧 Luyện kiểu hội thoại này trên Parroto**: 2 bài trong 267 bài TOEIC Listening (dictation + shadowing) cùng chủ đề (khách sạn, giao hàng, tuyển dụng…). Bài bạn chưa đạt 85 điểm được ưu tiên. Extension cần biết danh sách bài: mở trang TOEIC Listening của Parroto một lần là đủ.
 
 ## Quy tắc tự điều chỉnh (từ ngày 9)
 

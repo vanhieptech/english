@@ -6,6 +6,7 @@ import { buildDay } from './lib/plan.js';
 import { dueErrors, applyRedo, scheduleNew } from './lib/rules.js';
 import { LINKS, slugify, parseUSDate } from './lib/constants.js';
 import { toResult } from './lib/autoresult.js';
+import { addSaved } from './lib/vocab.js';
 
 // Serialize writes so concurrent messages do not overwrite each other.
 let queue = Promise.resolve();
@@ -176,6 +177,12 @@ chrome.runtime.onMessage.addListener((msg, sender, sendResponse) => {
       snaps[d] = { first: snaps[d]?.first || snap, last: snap };
       return { ...v, snaps };
     }));
+  } else if (msg.type === 'pace') {
+    serial(() => store.update('pace', (all) => ({ ...all, [msg.session]: { ...(all[msg.session] || {}), date: all[msg.session]?.date || d, start: msg.start, scale: msg.scale, qSecs: msg.qSecs, groups: msg.groups || all[msg.session]?.groups || null } })));
+  } else if (msg.type === 'listenPace') {
+    serial(() => store.update('pace', (all) => ({ ...all, [msg.session]: { ...(all[msg.session] || { date: d }), listen: { ...(all[msg.session]?.listen || {}), ...msg.sets } } })));
+  } else if (msg.type === 'vocabSave') {
+    serial(() => store.update('vocab', (v) => ({ ...v, saved: addSaved(v.saved, msg, d) })));
   } else if (msg.type === 'vocabRate') {
     serial(() => store.update('vocab', (v) => {
       const rates = { ...(v.rates || {}) };

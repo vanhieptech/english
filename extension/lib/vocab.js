@@ -53,3 +53,25 @@ export function overdueOn(db, dateISO) {
   if (manual != null) return manual;
   return vocabDay(db, dateISO).due;
 }
+
+// Words saved with Parroto's Dictionary (they go to Parroto's My vocabulary).
+// db.vocab.saved = [{ word, sense, date, session, q, part, code, n }]; session/q are set when saved from a wrong question.
+export function addSaved(list, entry, dateISO) {
+  const out = [...(list || [])];
+  const i = out.findIndex((w) => w.word.toLowerCase() === entry.word.toLowerCase());
+  if (i >= 0) {
+    const prev = out[i];
+    out[i] = { ...prev, sense: entry.sense || prev.sense, session: prev.session || entry.session, q: prev.q || entry.q, part: prev.part || entry.part, code: prev.code || entry.code, n: (prev.n || 1) + 1 };
+  } else {
+    out.push({ word: entry.word, sense: entry.sense || '', date: dateISO, session: entry.session || null, q: entry.q || null, part: entry.part || null, code: entry.code || null, n: 1 });
+  }
+  return out;
+}
+
+// Words from wrong questions saved in the last `days` days (what the review task focuses on).
+export function savedFromErrors(db, dateISO, days = 14) {
+  const from = new Date(dateISO + 'T00:00:00');
+  from.setDate(from.getDate() - (days - 1));
+  const fromISO = from.toLocaleDateString('sv-SE');
+  return (db.vocab?.saved || []).filter((w) => w.session && w.date >= fromISO && w.date <= dateISO);
+}

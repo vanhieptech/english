@@ -20,6 +20,7 @@ export const LINKS = {
   result: (session) => `${PARROTO}/exams/toeic/session/${session}/result`,
   listeningTopic: `${PARROTO}/topics/toeic-listening`,
   vocabulary: `${PARROTO}/vocabulary`,
+  myVocabulary: `${PARROTO}/my-vocabulary`,
   games: `${PARROTO}/games`,
   test: (set, n) => `${PARROTO}/exams/toeic/${set}-test-${n}`,
   dictation: (slug) => `${PARROTO}/lessons/dictation/${slug}`,

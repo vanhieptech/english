@@ -3,7 +3,7 @@
 //
 // Keys and who writes them (one writer per key avoids lost updates):
 //   settings, results, errors, daily, assign, ignore, drill  -> panel
-//   time, lessons, meta, autoResults, parroto, vocab, review -> service worker
+//   time, lessons, meta, autoResults, parroto, vocab, review, pace -> service worker
 // errors: panel, plus one-tap codes / redo results sent from Parroto's result page (service worker, serialised).
 // getAll() merges autoResults (read from Parroto result pages) into results.
 
@@ -31,6 +31,7 @@ export const DEFAULTS = {
   drill: { items: {}, log: [] },
   vocab: { snaps: {}, rates: {} },
   review: {},
+  pace: {}, // session -> { date, start, scale, qSecs, groups } from the Reading pacing overlay
 };
 
 export const KEYS = Object.keys(DEFAULTS);

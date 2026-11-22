@@ -24,6 +24,7 @@
     if (path.startsWith('/lessons/dictation')) return 'dictation';
     if (path.startsWith('/lessons/shadowing')) return 'shadowing';
     if (path.startsWith('/topics')) return 'listening';
+    if (path.startsWith('/my-vocabulary')) return 'myvocab';
     if (path.startsWith('/vocabulary') || path.startsWith('/flashcard') || path.startsWith('/decks')) return 'vocab';
     if (path.startsWith('/games')) return 'games';
     return 'other';
@@ -353,16 +354,18 @@
   // ---- On-page tools on the result page: redo wrong questions with Parroto's own items, one-tap error codes ----
   let autocode = null;
   import(chrome.runtime.getURL('lib/autocode.js')).then((m) => { autocode = m; }).catch(() => {});
-  let tcStore = { errors: [], autoResults: [], review: {} };
+  let tcStore = { errors: [], autoResults: [], review: {}, lessons: {} };
+  let listen = null;
+  import(chrome.runtime.getURL('lib/listen.js')).then((m) => { listen = m; }).catch(() => {});
   function loadStore() {
     try {
-      chrome.storage.local.get(['errors', 'autoResults', 'review'], (r) => {
-        tcStore = { errors: r.errors || [], autoResults: r.autoResults || [], review: r.review || {} };
+      chrome.storage.local.get(['errors', 'autoResults', 'review', 'lessons'], (r) => {
+        tcStore = { errors: r.errors || [], autoResults: r.autoResults || [], review: r.review || {}, lessons: r.lessons || {} };
       });
     } catch { /* extension reloaded */ }
   }
   loadStore();
-  try { chrome.storage.onChanged.addListener((ch, area) => { if (area === 'local' && (ch.errors || ch.autoResults || ch.review)) loadStore(); }); } catch { /* ignore */ }
+  try { chrome.storage.onChanged.addListener((ch, area) => { if (area === 'local' && (ch.errors || ch.autoResults || ch.review || ch.lessons)) loadStore(); }); } catch { /* ignore */ }
 
   const CODE_NAMES = { V: 'Từ vựng', G: 'Ngữ pháp', A: 'Nghe sót âm', D: 'Dính bẫy', P: 'Paraphrase', I: 'Suy luận', T: 'Hết giờ', C: 'Bất cẩn', Q: 'Hiểu sai câu hỏi' };
   const redo = { on: false, answered: {} }; // answered: q -> { pick, ok }
@@ -385,6 +388,7 @@
       .tc-tools .codes button { min-width: 30px; margin: 3px 3px 0 0; font-weight: 700; }
       .tc-tools .codes button.sug { border-color: #16a34a; color: #4ade80; }
       .tc-tools .codes button.cur { background: #16a34a; color: #fff; border-color: #16a34a; }
+      .tc-tools .words button { margin: 3px 3px 0 0; }
       .tc-tools .ans button { min-width: 40px; margin: 4px 4px 0 0; font-weight: 700; }
       .tc-tools .ok { color: #4ade80; } .tc-tools .bad { color: #f87171; }
     `;
@@ -413,7 +417,8 @@
       let box = el.parentElement;
       for (let i = 0; i < 3 && box && !/border/.test(box.className); i++) box = box.parentElement;
       const cls = box ? box.className : '';
-      return { letter: el.textContent.trim(), correct: /(border|bg)-green-/.test(cls), chosen: /(border|bg)-red-/.test(cls) };
+      const text = box ? box.innerText.replace(/^\s*[A-D]\s*/, '').trim() : '';
+      return { letter: el.textContent.trim(), text, correct: /(border|bg)-green-/.test(cls), chosen: /(border|bg)-red-/.test(cls) };
     });
   }
 
@@ -445,11 +450,21 @@
     if (redo.on) {
       const a = redo.answered[q];
       html += `<div><b>Làm lại câu ${q}</b> – chọn đáp án:</div><div class="ans">${opts.map((o, i) => `<button data-tct="ans" data-i="${i}" ${a ? 'disabled' : ''}>${o.letter}</button>`).join('')}</div>`;
-      if (a) html += `<div class="${a.ok ? 'ok' : 'bad'}" style="margin-top:4px">${a.ok ? '✓ Đúng' : `✗ Chưa đúng – đáp án ${opts[correctIdx]?.letter || '?'}`}. ${err ? 'Đã ghi vào lịch làm lại.' : 'Gắn mã lỗi bên dưới để đưa câu này vào lịch làm lại.'}</div>`;
+      if (a) html += `<div class="${a.ok ? 'ok' : 'bad'}" style="margin-top:4px">${a.ok ? '✓ Đúng' : `✗ Chưa đúng – đáp án ${opts[correctIdx]?.letter || '?'}`}. ${a.saved ? 'Đã ghi lần làm này vào lịch làm lại.' : 'Chưa lưu – gắn mã lỗi bên dưới thì lần làm này được ghi vào lịch.'}</div>`;
     }
     if (!redo.on || redo.answered[q]) {
       html += `<div style="margin-top:${redo.on ? 8 : 0}px"><b>Mã lỗi</b>${err ? ` · đang là <b>${err.code}</b>` : ''}${sug ? ` · gợi ý <b>${sug.code}</b>: ${sug.reason.replace(/</g, '&lt;')}` : ''}</div>
         <div class="codes">${Object.keys(CODE_NAMES).map((c) => `<button data-tct="code" data-c="${c}" title="${CODE_NAMES[c]}" class="${err && err.code === c ? 'cur' : ''} ${sug && sug.code === c ? 'sug' : ''}">${c}</button>`).join('')}</div>`;
+    }
+    const shortOpts = opts.filter((o) => /^[A-Za-z][A-Za-z'-]*( [A-Za-z][A-Za-z'-]*){0,2}$/.test(o.text));
+    if (shortOpts.length && (!redo.on || redo.answered[q])) {
+      html += `<div class="words" style="margin-top:6px">📖 Tra & lưu vào Parroto: ${shortOpts.map((o) => `<button data-tct="word" data-w="${o.text.replace(/"/g, '')}">${o.text.replace(/</g, '&lt;')}</button>`).join(' ')} <span style="opacity:.7">· hoặc bôi đen từ bất kỳ trong câu/giải thích</span></div>`;
+    }
+    if ((part === 'P3' || part === 'P4') && listen && (!redo.on || redo.answered[q])) {
+      const lessons = Object.values(tcStore.lessons || {});
+      const pick = listen.matchLessons(block.innerText, lessons, 2);
+      const link = (l) => `<a href="https://parroto.app/lessons/dictation/${encodeURIComponent(l.slug || '')}" target="_blank" style="color:#93c5fd">${l.title.replace(/</g, '&lt;')}</a>${l.dictation != null ? ` (${l.dictation}/100)` : ''}`;
+      html += `<div style="margin-top:6px">🎧 Luyện kiểu hội thoại này trên Parroto (dictation rồi shadowing): ${pick.length ? pick.map(link).join(' · ') : lessons.length ? '<a href="https://parroto.app/topics/toeic-listening" target="_blank" style="color:#93c5fd">chọn bài cùng chủ đề</a>' : '<a href="https://parroto.app/topics/toeic-listening" target="_blank" style="color:#93c5fd">mở danh sách bài TOEIC Listening</a> một lần để extension đọc tên bài'}</div>`;
     }
     box.innerHTML = html;
     box.onclick = (e) => {
@@ -457,16 +472,26 @@
       if (!b) return;
       e.preventDefault();
       e.stopPropagation();
+      if (b.dataset.tct === 'word') {
+        const err2 = errorFor(session, q);
+        pendingWord = { word: b.dataset.w, session, q, part, code: err2 ? err2.code : null, at: Date.now() };
+        openDictionary(b.dataset.w);
+        return;
+      }
       if (b.dataset.tct === 'ans') {
         const i = Number(b.dataset.i);
         const ok = i === correctIdx;
-        redo.answered[q] = { pick: i, ok };
+        // Only a question that already has an error code has a redo schedule to update.
+        redo.answered[q] = { pick: i, ok, saved: !!err };
         block.classList.remove('tc-redo-q');
-        send({ type: 'redoResult', session, q, ok });
+        if (err) send({ type: 'redoResult', session, q, ok });
         renderTools(box, session, q, block);
       } else if (b.dataset.tct === 'code') {
         const code = b.dataset.c;
         send({ type: 'codeError', session, q, part, code, skipped: chosenIdx < 0, suggested: sug ? sug.code : null, suggestReason: sug ? sug.reason : null });
+        // A redo answered before the code existed is recorded now (the worker handles messages in order).
+        const a = redo.answered[q];
+        if (a && !a.saved) { send({ type: 'redoResult', session, q, ok: a.ok }); a.saved = true; }
         // Optimistic update so the button state changes at once.
         const idx = tcStore.errors.findIndex((x) => x.srcKey === `${session}|${q}`);
         if (idx >= 0) tcStore.errors[idx] = { ...tcStore.errors[idx], code };
@@ -523,6 +548,286 @@
       box.dataset.redo = String(redo.on);
     }
   }
+
+  // ---- Save words from wrong questions into Parroto's own notebook (My vocabulary) via its Dictionary ----
+  // The extension only opens Parroto's Dictionary with the word filled in; the learner picks the sense and presses Save.
+  let pendingWord = null; // { word, session, q, part, code, at }
+  let wordBtn = null;
+
+  function hideWordBtn() { if (wordBtn) { wordBtn.remove(); wordBtn = null; } }
+
+  function setInputValue(input, value) {
+    const setter = Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, 'value').set;
+    setter.call(input, value);
+    input.dispatchEvent(new Event('input', { bubbles: true }));
+  }
+
+  function waitFor(fn, ms = 4000) {
+    return new Promise((resolve) => {
+      const t0 = Date.now();
+      const tick = () => { const v = fn(); if (v || Date.now() - t0 > ms) resolve(v); else setTimeout(tick, 100); };
+      tick();
+    });
+  }
+
+  async function openDictionary(word) {
+    const dictInput = () => document.querySelector('[role=dialog] input[placeholder="Search dictionary"]');
+    if (!dictInput()) {
+      const btn = document.querySelector('button[aria-label="Search dictionary"]');
+      if (!btn) return false;
+      btn.click();
+    }
+    const input = await waitFor(dictInput);
+    if (!input) return false;
+    setInputValue(input, word);
+    if (input.form && input.form.requestSubmit) input.form.requestSubmit();
+    else input.dispatchEvent(new KeyboardEvent('keydown', { key: 'Enter', bubbles: true }));
+    return true;
+  }
+
+  function wordContext(node) {
+    const m = location.pathname.match(/^\/exams\/toeic\/session\/([^/]+)\/result/);
+    if (!m) return {};
+    const hit = visibleBlocks().find((b) => b.block.contains(node));
+    if (!hit) return { session: m[1] };
+    const err = errorFor(m[1], hit.q);
+    return { session: m[1], q: hit.q, part: partOfQ(hit.q), code: err ? err.code : null };
+  }
+
+  document.addEventListener('mouseup', (e) => {
+    if (e.target.closest && e.target.closest('.tc-wordbtn')) return;
+    setTimeout(() => {
+      const sel = window.getSelection();
+      const text = sel ? sel.toString().trim().replace(/\s+/g, ' ') : '';
+      if (!/^\/exams\/toeic\/session\/[^/]+\/result/.test(location.pathname) || !/^[A-Za-z][A-Za-z'-]*( [A-Za-z][A-Za-z'-]*){0,3}$/.test(text) || text.length > 40
+        || (sel.anchorNode && sel.anchorNode.parentElement && sel.anchorNode.parentElement.closest('[role=dialog],.tc-tools,.tc-diag,.tc-bar'))) { hideWordBtn(); return; }
+      const rect = sel.getRangeAt(0).getBoundingClientRect();
+      const ctx = wordContext(sel.anchorNode);
+      hideWordBtn();
+      wordBtn = document.createElement('button');
+      wordBtn.className = 'tc-wordbtn';
+      wordBtn.textContent = `📖 Tra & lưu "${text}" vào Parroto`;
+      wordBtn.style.cssText = `position:fixed;z-index:2147483000;left:${Math.max(8, rect.left)}px;top:${Math.min(window.innerHeight - 40, rect.bottom + 6)}px;padding:6px 10px;border-radius:8px;border:1px solid #6d9bff;background:#14203c;color:#e8efff;font:13px -apple-system,Segoe UI,sans-serif;cursor:pointer;box-shadow:0 4px 14px rgba(0,0,0,.35)`;
+      wordBtn.addEventListener('mousedown', (ev) => ev.preventDefault());
+      wordBtn.addEventListener('click', async (ev) => {
+        ev.preventDefault();
+        ev.stopPropagation();
+        pendingWord = { word: text, ...ctx, at: Date.now() };
+        hideWordBtn();
+        await openDictionary(text);
+      });
+      document.body.appendChild(wordBtn);
+    }, 0);
+  }, true);
+  document.addEventListener('scroll', hideWordBtn, { passive: true, capture: true });
+
+  // Record every Save pressed in Parroto's Dictionary; attach the wrong-question source when it came from our button.
+  document.addEventListener('click', (e) => {
+    const b = e.target.closest && e.target.closest('[role=dialog] button');
+    if (!b || b.innerText.trim() !== 'Save') return;
+    const dialog = b.closest('[role=dialog]');
+    const input = dialog.querySelector('input[placeholder="Search dictionary"]');
+    const word = (input && input.value.trim()) || '';
+    if (!word) return;
+    let card = b.parentElement;
+    for (let i = 0; i < 4 && card && !card.querySelector('p'); i++) card = card.parentElement;
+    const sense = card ? [...card.querySelectorAll('p')].map((p) => p.innerText.trim()).find((t) => t.length > 20 && !t.startsWith('UK') && !t.startsWith('US')) || '' : '';
+    const ctx = pendingWord && pendingWord.word.toLowerCase() === word.toLowerCase() && Date.now() - pendingWord.at < 600000 ? pendingWord : {};
+    send({ type: 'vocabSave', word, sense: sense.slice(0, 160), session: ctx.session || null, q: ctx.q || null, part: ctx.part || null, code: ctx.code || null, page: location.pathname });
+  }, true);
+
+  // ---- Reading pacing overlay on the exam-taking page (/exams/toeic/session/<id>) ----
+  // Uses Parroto's own countdown: Reading starts when a question >= 101 is first open; elapsed = start - remaining.
+  let pace = null;
+  import(chrome.runtime.getURL('lib/pace.js')).then((m) => { pace = m; }).catch(() => {});
+  const paceState = { session: null, start: null, last: null, qSecs: {}, groups: null, sentAt: 0, warned: {} };
+
+  function readTimer() {
+    const submit = [...document.querySelectorAll('button')].find((b) => b.innerText.trim() === 'SUBMIT');
+    let root = submit;
+    for (let i = 0; i < 5 && root; i++) {
+      root = root.parentElement;
+      // The clock text sits next to an svg icon, so match on the element's whole text, not only leaf nodes.
+      const leaf = root && [...root.querySelectorAll('*')].find((e) => /^\d{1,3}:\d{2}(:\d{2})?$/.test(e.textContent.trim()));
+      if (leaf) {
+        const p = leaf.textContent.trim().split(':').map(Number);
+        return p.length === 3 ? p[0] * 3600 + p[1] * 60 + p[2] : p[0] * 60 + p[1];
+      }
+    }
+    return null;
+  }
+
+  function navState() {
+    const nav = [...document.querySelectorAll('button')].filter((b) => /^\d{1,3}$/.test(b.innerText.trim()) && /\b(w-8|h-8)\b/.test(b.className));
+    const cur = nav.find((b) => /ring-primary/.test(b.className));
+    let curN = cur ? Number(cur.innerText.trim()) : null;
+    if (!curN) {
+      // Before any click Parroto marks no current question: use the first question heading on screen.
+      const vis = [...document.querySelectorAll('p')].find((e) => /^Question \d+$/.test(e.textContent.trim()) && (() => { const r = e.getBoundingClientRect(); return r.bottom > 60 && r.top < window.innerHeight; })());
+      if (vis) curN = Number(vis.textContent.trim().slice(9));
+    }
+    return { cur: curN, answered: nav.filter((b) => /bg-green-500/.test(b.className)).map((b) => Number(b.innerText.trim())) };
+  }
+
+  function p7Groups() {
+    const heads = [...document.querySelectorAll('p')].filter((e) => /^Question \d+$/.test(e.textContent.trim()));
+    const map = new Map();
+    for (const h of heads) {
+      const n = Number(h.textContent.trim().slice(9));
+      if (n < 147) continue;
+      let el = h;
+      for (let i = 0; i < 10 && el; i++) { el = el.parentElement; if (el && el.querySelector('img')) break; }
+      if (!el) continue;
+      if (!map.has(el)) map.set(el, { qs: [], texts: Math.min(3, Math.max(1, el.querySelectorAll('img').length)) });
+      map.get(el).qs.push(n);
+    }
+    const gs = [...map.values()].map((g) => ({ ...g, qs: [...new Set(g.qs)].sort((a, b) => a - b) })).sort((a, b) => a.qs[0] - b.qs[0]);
+    return gs.length >= 10 ? gs : null; // only trust a full read of Part 7
+  }
+
+  function paceBox() {
+    let box = document.getElementById('tc-pace');
+    if (!box) {
+      box = document.createElement('div');
+      box.id = 'tc-pace';
+      box.style.cssText = 'position:fixed;left:12px;bottom:12px;z-index:2147483000;max-width:340px;padding:8px 12px;border-radius:10px;border:1px solid #6d9bff;background:rgba(20,30,60,.94);color:#e8efff;font:12.5px/1.45 -apple-system,Segoe UI,sans-serif;box-shadow:0 4px 14px rgba(0,0,0,.35);cursor:pointer';
+      box.title = 'TOEIC Coach – bấm để thu gọn / mở';
+      box.addEventListener('click', () => { box.dataset.min = box.dataset.min === '1' ? '' : '1'; });
+      document.body.appendChild(box);
+    }
+    return box;
+  }
+
+  function paceTick() {
+    const m = location.pathname.match(/^\/exams\/toeic\/session\/([^/]+)\/?$/);
+    const old = document.getElementById('tc-pace');
+    if (!m || !pace) { if (old) old.remove(); return; }
+    const session = m[1];
+    if (paceState.session !== session) {
+      let saved = null;
+      try { saved = JSON.parse(localStorage.getItem('tc:pace:' + session) || 'null'); } catch { /* storage blocked */ }
+      Object.assign(paceState, { session, start: saved?.start ?? null, qSecs: saved?.qSecs || {}, last: null, groups: null, sentAt: 0, warned: {} });
+    }
+    const remaining = readTimer();
+    const { cur } = navState();
+    if (remaining == null || !cur || cur < 101) { if (old) old.remove(); return; }
+    if (paceState.start == null) paceState.start = remaining;
+    // Count time only while Parroto's clock is running (pause stops it).
+    if (paceState.last != null && remaining < paceState.last) paceState.qSecs[cur] = (paceState.qSecs[cur] || 0) + (paceState.last - remaining);
+    paceState.last = remaining;
+    if (!paceState.groups && cur >= 147) paceState.groups = p7Groups();
+    const avail = Math.min(pace.READING_MIN * 60, paceState.start);
+    const scale = avail / (pace.READING_MIN * 60);
+    const t = pace.targets(paceState.groups || pace.STANDARD_P7, scale);
+    const elapsedMin = (paceState.start - remaining) / 60;
+    const st = pace.status(t, cur, elapsedMin);
+    const aheadSec = st.ahead * 60;
+    const color = aheadSec >= -30 ? '#4ade80' : aheadSec >= -180 ? '#fbbf24' : '#f87171';
+    const part = cur <= 130 ? 'P5' : cur <= 146 ? 'P6' : 'P7';
+    const milestone = cur <= 130 ? `xong P5 lúc ${pace.mmss(t[130] * 60)}` : cur <= 146 ? `xong P6 lúc ${pace.mmss(t[146] * 60)}` : `xong P7 lúc ${pace.mmss(t[200] * 60)}`;
+    let html = `<div><b>TOEIC Coach · Reading</b> · đã dùng <b>${pace.mmss(elapsedMin * 60)}</b> / ${pace.mmss(avail)} · mốc: ${milestone}</div>
+      <div style="color:${color}">Câu ${cur} (${part}) · ${Math.abs(aheadSec) < 30 ? 'đúng kế hoạch' : aheadSec > 0 ? `nhanh ${pace.mmss(aheadSec)}` : `chậm ${pace.mmss(aheadSec)} – lẽ ra đang ở câu ${st.expectedQ}`}</div>`;
+    if (part === 'P7') {
+      const g = (paceState.groups || pace.STANDARD_P7).find((x) => x.qs.includes(cur));
+      if (g) {
+        const b = pace.passageBudget(t, g, paceState.qSecs);
+        const kind = b.texts === 3 ? 'đoạn ba' : b.texts === 2 ? 'đoạn kép' : 'đoạn đơn';
+        html += `<div style="color:${b.over ? '#f87171' : '#e8efff'}">Đoạn ${b.first}–${b.last} (${kind}): đã dùng ${pace.mmss(b.usedSec)} / ngân sách ${pace.mmss(b.budgetSec)}${b.over ? ' → đoán câu khó, sang đoạn sau' : ''}</div>`;
+      }
+    }
+    // One-time nudges when a milestone passes and you are still in the earlier part.
+    if (part === 'P5' && elapsedMin > t[130] && !paceState.warned.p5) paceState.warned.p5 = true;
+    if (part !== 'P7' && elapsedMin > t[146] && !paceState.warned.p6) paceState.warned.p6 = true;
+    if (paceState.warned.p5 && part === 'P5') html += '<div style="color:#f87171">Quá mốc P5: đoán câu đang kẹt, chuyển P6 ngay.</div>';
+    else if (paceState.warned.p6 && part !== 'P7') html += '<div style="color:#f87171">Quá mốc P6: chuyển sang P7, P7 cần ~55 phút.</div>';
+    const box = paceBox();
+    box.innerHTML = box.dataset.min === '1' ? `<div style="color:${color}"><b>⏱ ${aheadSec >= 0 ? '+' : '−'}${pace.mmss(aheadSec)}</b></div>` : html;
+    try { localStorage.setItem('tc:pace:' + session, JSON.stringify({ start: paceState.start, qSecs: paceState.qSecs })); } catch { /* storage blocked */ }
+    if (Date.now() - paceState.sentAt > 15000) {
+      paceState.sentAt = Date.now();
+      send({ type: 'pace', session, start: paceState.start, scale, qSecs: paceState.qSecs, groups: paceState.groups ? paceState.groups.map((g) => [g.qs[0], g.qs[g.qs.length - 1], g.texts]) : null });
+    }
+  }
+  setInterval(paceTick, 1000);
+
+  // ---- Part 3/4 coach on the exam-taking page: read the 3 questions first, listen in order, answer fast ----
+  const lis = { session: null, audio: new WeakMap(), sets: {}, sentAt: 0, curFirst: null, curSince: 0 };
+
+  function listeningSets() {
+    const audios = [...document.querySelectorAll('audio')];
+    const heads = [...document.querySelectorAll('p')].filter((e) => /^Question \d+$/.test(e.textContent.trim()));
+    const sets = [];
+    for (const a of audios) {
+      const qs = heads.filter((h) => a.compareDocumentPosition(h) & Node.DOCUMENT_POSITION_FOLLOWING)
+        .filter((h) => { const nxt = audios[audios.indexOf(a) + 1]; return !nxt || (h.compareDocumentPosition(nxt) & Node.DOCUMENT_POSITION_FOLLOWING); })
+        .map((h) => {
+          const n = Number(h.textContent.trim().slice(9));
+          let blk = h;
+          for (let i = 0; i < 4 && blk && !/\n\s*A\s*\n/.test(blk.innerText); i++) blk = blk.parentElement;
+          const stem = blk ? (blk.innerText.split('\n').map((x) => x.trim()).filter((x) => x && !/^Question \d+$/.test(x) && !/^(Flag|Flagged|Unflag)$/i.test(x))[0] || '') : '';
+          return { n, stem };
+        });
+      if (qs.length) sets.push({ audio: a, qs });
+    }
+    return sets;
+  }
+
+  function listenTick() {
+    const m = location.pathname.match(/^\/exams\/toeic\/session\/([^/]+)\/?$/);
+    const old = document.getElementById('tc-listen');
+    const { cur } = m ? navState() : { cur: null };
+    if (!m || !listen || !cur || cur < 32 || cur > 100) { if (old) old.remove(); return; }
+    if (lis.session !== m[1]) Object.assign(lis, { session: m[1], audio: new WeakMap(), sets: {}, sentAt: 0, curFirst: null, curSince: Date.now() });
+    const sets = listeningSets();
+    if (!sets.length) { if (old) old.remove(); return; }
+    for (const s of sets) {
+      if (lis.audio.has(s.audio)) continue;
+      const st = { plays: 0, ended: false, endedAt: 0, first: s.qs[0].n };
+      lis.audio.set(s.audio, st);
+      s.audio.addEventListener('play', () => {
+        st.plays++;
+        const rec = lis.sets[st.first] || (lis.sets[st.first] = { plays: 0, preread: null });
+        rec.plays = st.plays;
+        if (rec.preread == null && lis.curFirst === st.first) rec.preread = Math.round((Date.now() - lis.curSince) / 1000);
+      });
+      s.audio.addEventListener('ended', () => { st.ended = true; st.endedAt = Date.now(); });
+    }
+    const playing = sets.find((s) => !s.audio.paused && !s.audio.ended);
+    const set = playing || sets.find((s) => s.qs.some((x) => x.n === cur)) || sets[0];
+    const st = lis.audio.get(set.audio);
+    if (lis.curFirst !== st.first) { lis.curFirst = st.first; lis.curSince = Date.now(); }
+    const range = `${set.qs[0].n}–${set.qs[set.qs.length - 1].n}`;
+    const tip = (x) => { const f = listen.classifyFocus(x.stem); return `<b>${x.n}</b>: ${listen.LISTEN_FOR[f]}`; };
+    let html = `<div><b>TOEIC Coach · Nghe câu ${range}</b></div>`;
+    if (playing) {
+      const frac = set.audio.duration ? set.audio.currentTime / set.audio.duration : 0;
+      const idx = Math.min(set.qs.length - 1, Math.floor(frac * set.qs.length));
+      html += `<div>Đáp án đi theo thứ tự. Đang ở khoảng của <b>câu ${set.qs[idx].n}</b> → ${listen.LISTEN_FOR[listen.classifyFocus(set.qs[idx].stem)]}</div>
+        <div style="opacity:.8">Nghe được đáp án câu sau mà chưa có câu trước → đoán câu trước ngay, đừng chờ.</div>`;
+    } else if (st.ended) {
+      const secs = Math.round((Date.now() - st.endedAt) / 1000);
+      html += `<div style="color:${secs > 25 ? '#f87171' : '#e8efff'}">Chọn ngay cả ${set.qs.length} câu (thi thật ~8 giây/câu) · ${secs}s rồi đọc trước bộ sau.</div>`;
+      if (st.plays > 1) html += `<div style="color:#fbbf24">Đã nghe ${st.plays} lần – thi thật chỉ nghe 1 lần. Nghe lại để học thì dùng Practice Mode.</div>`;
+    } else {
+      const secs = Math.round((Date.now() - lis.curSince) / 1000);
+      html += `<div style="opacity:.85">Đọc trước 3 câu hỏi rồi mới bấm phát (${secs}s, thi thật có ~20–30s):</div>${set.qs.map((x) => `<div>• ${tip(x)}</div>`).join('')}`;
+    }
+    let box = old;
+    if (!box) {
+      box = document.createElement('div');
+      box.id = 'tc-listen';
+      box.style.cssText = 'position:fixed;left:12px;bottom:12px;z-index:2147483000;max-width:360px;padding:8px 12px;border-radius:10px;border:1px solid #6d9bff;background:rgba(20,30,60,.94);color:#e8efff;font:12.5px/1.45 -apple-system,Segoe UI,sans-serif;box-shadow:0 4px 14px rgba(0,0,0,.35);cursor:pointer';
+      box.title = 'TOEIC Coach – bấm để thu gọn / mở';
+      box.addEventListener('click', () => { box.dataset.min = box.dataset.min === '1' ? '' : '1'; });
+      document.body.appendChild(box);
+    }
+    box.innerHTML = box.dataset.min === '1' ? `<b>🎧 ${range}</b>` : html;
+    if (Object.keys(lis.sets).length && Date.now() - lis.sentAt > 15000) {
+      lis.sentAt = Date.now();
+      send({ type: 'listenPace', session: m[1], sets: lis.sets });
+    }
+  }
+  setInterval(listenTick, 1000);
 
   // ---- Exam history: /exams/toeic/history ----
   function parseHistory() {

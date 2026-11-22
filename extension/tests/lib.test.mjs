@@ -530,3 +530,82 @@ test('your own listening diagnosis overrides the automatic suggestion', () => {
   assert.equal(sg.code, 'A');
   assert.match(sg.reason, /tự chẩn đoán/);
 });
+
+test('saved words: upsert by word, keep first source, count saves', async () => {
+  const { addSaved, savedFromErrors } = await import('../lib/vocab.js');
+  let list = addSaved([], { word: 'waive', sense: 'not require', session: 's1', q: 112, part: 'P5', code: 'V' }, '2026-11-22');
+  list = addSaved(list, { word: 'Waive', sense: 'to give up a right' }, '2026-11-23');
+  list = addSaved(list, { word: 'ladder', sense: 'equipment' }, '2026-11-23');
+  assert.equal(list.length, 2);
+  assert.equal(list[0].n, 2);
+  assert.equal(list[0].session, 's1');
+  assert.equal(list[0].sense, 'to give up a right');
+  const d = db({ vocab: { snaps: {}, rates: {}, saved: list } });
+  assert.deepEqual(savedFromErrors(d, '2026-11-24').map((w) => w.word), ['waive']);
+  assert.equal(savedFromErrors(d, '2026-12-10').length, 0);
+});
+
+test('daily plan adds My vocabulary review only when words came from errors', () => {
+  const day = dateForDay(3, EXAM);
+  const none = buildDay(db(), day);
+  assert.ok(!none.tasks.some((t) => t.id === 'errwords'));
+  const withWords = buildDay(db({ vocab: { snaps: {}, rates: {}, saved: [{ word: 'waive', date: day, session: 's1', q: 112 }] }, time: { [day]: { myvocab: 320 } } }), day);
+  const t = withWords.tasks.find((x) => x.id === 'errwords');
+  assert.ok(t, 'errwords task missing');
+  assert.ok(t.link.endsWith('/my-vocabulary'));
+  assert.equal(t.done, true);
+});
+
+test('reading pace: milestones and passage budgets', async () => {
+  const { targets, status, passageBudget, summarize, STANDARD_P7 } = await import('../lib/pace.js');
+  const t = targets();
+  assert.ok(Math.abs(t[130] - 11) < 1e-9);
+  assert.ok(Math.abs(t[146] - 20) < 1e-9);
+  assert.ok(Math.abs(t[200] - 75) < 1e-9);
+  // A triple-passage question gets more time than a single-passage one.
+  assert.ok(t[187] - t[186] > t[149] - t[148]);
+  // At minute 15 working on 140: plan says 139 done by ~16.2 → ahead.
+  assert.ok(status(t, 140, 15).ahead > 0);
+  assert.ok(status(t, 120, 15).ahead < 0);
+  const triple = STANDARD_P7.find((g) => g.qs[0] === 186);
+  const b = passageBudget(t, triple, { 186: 100, 187: 100, 188: 100, 189: 100, 190: 100 });
+  assert.ok(b.budgetSec > 300 && b.budgetSec < 420);
+  assert.equal(b.over, true);
+  const half = targets(STANDARD_P7, 0.5);
+  assert.ok(Math.abs(half[200] - 37.5) < 1e-9);
+  const s = summarize({ 101: 20, 102: 40, 186: 100, 187: 100, 188: 100, 189: 100, 190: 100 });
+  assert.equal(s.P5.avg, 30);
+  assert.equal(s.over.length, 1);
+});
+
+test('P3/P4: question focus, topics, lesson matching', async () => {
+  const { classifyFocus, topicsOf, matchLessons, LISTEN_FOR } = await import('../lib/listen.js');
+  const cases = {
+    'Who most likely is the woman?': 'who',
+    'Where is the conversation most likely taking place?': 'place',
+    'What will the woman most likely do next?': 'next',
+    'What problem does the woman mention?': 'problem',
+    'Why is the man calling?': 'topic',
+    'What does the woman offer to do?': 'request',
+    'How much will the man pay?': 'number',
+    'When will the order be delivered?': 'time',
+    'What is the purpose of the announcement?': 'topic',
+    'According to the speaker, what has caused a delay?': 'reason',
+    'What are listeners asked to do?': 'request',
+    'Look at the graphic. Which floor will the man go to?': 'graphic',
+    'Which feature is most important to the man?': 'detail',
+  };
+  for (const [q, f] of Object.entries(cases)) assert.equal(classifyFocus(q), f, q);
+  for (const f of Object.values(cases)) assert.ok(LISTEN_FOR[f], f);
+  assert.equal(topicsOf('Where is the conversation taking place? At a hotel. The flight was delayed.')[0], 'travel');
+  const lessons = [
+    { title: 'Hotel Booking & Airport Shuttle', dictation: null, order: 7 },
+    { title: 'Fixing a Hotel Reservation', dictation: 90, order: 48 },
+    { title: 'Rush Hour Gridlock', dictation: null, order: 33 },
+    { title: 'Delayed Delivery Dilemma', dictation: null, order: 53 },
+  ];
+  const m = matchLessons('I need to change my hotel reservation before my flight.', lessons);
+  assert.equal(m[0].title, 'Hotel Booking & Airport Shuttle');
+  assert.ok(!m.some((l) => l.title === 'Rush Hour Gridlock'));
+  assert.equal(matchLessons('The package delivery was delayed again.', lessons)[0].title, 'Delayed Delivery Dilemma');
+});
