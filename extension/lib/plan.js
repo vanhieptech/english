@@ -6,6 +6,7 @@ import { adjustments, weakestPart, dueErrors, weekSummary } from './rules.js';
 import { countToday, wrongToday, countSrcToday } from './drill.js';
 import { vocabDay, newWordsOn, reviewsOn, savedFromErrors } from './vocab.js';
 import { pendingPrompts } from './writing.js';
+import { isCheckpoint } from './progress.js';
 
 // L / R: parts to drill ('weak' = weakest part of that section), or a special string.
 // special: full | halfL | halfR | taper | exam
@@ -387,6 +388,14 @@ export function buildDay(db, dateISO) {
     });
   }
 
+  // Checkpoint: the same 20-minute format (Part 2 + Part 5, Test Mode) every 3–4 days, to compare fairly.
+  if ([4, 11, 19, 26].includes(day)) {
+    add({
+      id: 'checkpoint', time: addMin(st, 20), title: 'Bài mốc 20 phút: Part 2 + Part 5',
+      detail: 'Trên Parroto chọn một đề chưa làm → Test Mode → chỉ tích Part 2 và Part 5. Cùng định dạng mỗi lần để so tiến bộ công bằng (tab Tiến độ → Bài mốc).',
+      minutes: 20, link: LINKS.exams, linkLabel: 'Mở đề Parroto', autoDone: resultsOn(db, dateISO).some(isCheckpoint),
+    });
+  }
   if (plan.weekly) {
     const tipN = countToday(db.drill?.log || [], 'tip', dateISO);
     add({ id: 'tipquiz', time: addMin(ev, 30), title: 'Quiz mẹo thi (10 câu)', detail: 'Tab Luyện → Quiz mẹo thi. Câu sai quay lại theo lịch giãn cách.', minutes: 5, tab: 'drill', autoDone: tipN >= 10, progress: `${Math.min(tipN, 10)}/10` });

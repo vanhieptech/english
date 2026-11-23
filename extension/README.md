@@ -144,6 +144,21 @@ Khi làm Reading trên Parroto (đề full hoặc chỉ P5–P7, Test/Practice M
 - **Tab Luyện → Quiz mẹo thi**: 10 tình huống trong phòng thi, chọn cách xử lý đúng (phím 1–3), xem mẹo sau mỗi câu. Câu sai quay lại theo lịch giãn cách.
 - Ngày tổng kết tuần có thêm việc **Quiz mẹo thi (10 câu)**, tự đánh dấu xong khi làm đủ 10 câu.
 
+## Bằng chứng tiến bộ (v0.18)
+
+- **Tab Hôm nay → "Tiến bộ kỹ năng: 7 ngày qua vs 7 ngày trước"**: tỷ lệ đúng Listening/Reading trên đề và Part Parroto, làm lại câu sai đúng, giây/câu P5 khi luyện, giây/câu P7 trong đề, điểm dictation trung bình, số từ Mastered, tỷ lệ bộ P3/4 phải nghe lại. Mỗi chỉ số có mũi tên lên/xuống, kèm một câu nhận xét. Chỉ số nào chưa đủ dữ liệu thì để trống.
+- **Bài mốc 20 phút** vào ngày 4, 11, 19, 26: Part 2 + Part 5, Test Mode, trên một đề chưa làm. Cùng định dạng nên so được công bằng. Tab Tiến độ có biểu đồ % đúng P2/P5 qua các bài mốc; extension tự nhận bài mốc là lần làm bài chỉ có P2 + P5.
+- **Tab Tiến độ → Tổng điểm đề full**: có dải ±35 điểm là mức dao động bình thường giữa các đề. Tiến bộ thật là khi 2 đề liền nằm trên vùng mờ cũ.
+- **Gợi ý thêm nửa đề**: khi đã làm ≥ 2 đề full, đề gần nhất đã gắn mã hết và còn dưới 10 câu làm lại đến hạn, tab Hôm nay (vào ngày không có đề) gợi ý thêm 1 nửa đề Reading.
+
+## Dòng "vì sao" cho câu sai quan trọng (v0.19)
+
+- Trên trang kết quả, khung TOEIC Coach của mỗi câu đã có mã lỗi có thêm nút **"Tôi đã chắc chắn khi chọn"**. Bấm nút này nếu bạn đã chắc mình đúng mà vẫn sai: câu đó được đánh dấu là sai khi tự tin.
+- Câu **quan trọng** gồm: câu sai khi tự tin, hoặc câu có mã lỗi nằm trong 2 mã bạn mắc nhiều nhất 14 ngày qua (mỗi mã ≥ 3 lỗi; trừ mã T hết giờ). Với các câu này, khung mở sẵn ô **viết 1 dòng vì sao**: vì sao đáp án đúng là đúng, vì sao mình chọn sai. Gõ xong nhấn Enter là lưu.
+- Câu không quan trọng chỉ có nút nhỏ "＋ ghi vì sao", không bắt buộc.
+- Dòng này **hiện lại khi làm lại**. Trên Parroto, chế độ làm lại ẩn dòng này cho tới khi bạn chọn xong đáp án, rồi hiện "Lần trước bạn ghi: …". Trong Sổ lỗi, mỗi câu đến hạn có mục 📝 để mở xem sau khi làm.
+- Sổ lỗi nhắc số câu quan trọng còn thiếu dòng vì sao, kèm nút mở trang kết quả.
+
 ## Quy tắc tự điều chỉnh (từ ngày 9)
 
 | Điều kiện (7 ngày qua) | Điều chỉnh |

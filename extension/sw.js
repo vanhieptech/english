@@ -156,6 +156,10 @@ chrome.runtime.onMessage.addListener((msg, sender, sendResponse) => {
         return list;
       });
     });
+  } else if (msg.type === 'whyNote' || msg.type === 'errorConf') {
+    const key = `${msg.session}|${msg.q}`;
+    serial(() => store.update('errors', (list) => list.map((e) => (e.srcKey !== key ? e
+      : msg.type === 'whyNote' ? { ...e, why: msg.why, whyDate: d } : { ...e, confidence: msg.high ? 'high' : 'low' }))));
   } else if (msg.type === 'redoResult') {
     // Redo on Parroto's own result page counts as a step of the spaced redo schedule.
     serial(() => store.update('errors', (list) => list.map((e) => (e.srcKey === `${msg.session}|${msg.q}` && e.redo && !e.redo.done ? { ...e, redo: applyRedo(e.redo, d, !!msg.ok) } : e))));

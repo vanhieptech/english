@@ -357,6 +357,8 @@
   let tcStore = { errors: [], autoResults: [], review: {}, lessons: {} };
   let listen = null;
   let p5type = null;
+  let whyMod = null;
+  import(chrome.runtime.getURL('lib/why.js')).then((m) => { whyMod = m; }).catch(() => {});
   import(chrome.runtime.getURL('lib/p5type.js')).then((m) => { p5type = m; }).catch(() => {});
   const p5catSent = new Set();
   import(chrome.runtime.getURL('lib/listen.js')).then((m) => { listen = m; }).catch(() => {});
@@ -459,6 +461,19 @@
       html += `<div style="margin-top:${redo.on ? 8 : 0}px"><b>Mã lỗi</b>${err ? ` · đang là <b>${err.code}</b>` : ''}${sug ? ` · gợi ý <b>${sug.code}</b>: ${sug.reason.replace(/</g, '&lt;')}` : ''}</div>
         <div class="codes">${Object.keys(CODE_NAMES).map((c) => `<button data-tct="code" data-c="${c}" title="${CODE_NAMES[c]}" class="${err && err.code === c ? 'cur' : ''} ${sug && sug.code === c ? 'sug' : ''}">${c}</button>`).join('')}</div>`;
     }
+    if (err && whyMod && (!redo.on || redo.answered[q])) {
+      const reason = whyMod.importantReason(err, tcStore.errors, todayStr());
+      const escv = (x) => String(x).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/"/g, '&quot;');
+      html += `<div style="margin-top:6px"><button data-tct="conf" class="${err.confidence === 'high' ? 'cur' : ''}" title="Bạn đã chắc đáp án mình chọn là đúng">${err.confidence === 'high' ? '✓ Sai khi tự tin' : 'Tôi đã chắc chắn khi chọn'}</button></div>`;
+      if (err.why && box.dataset.whyEdit !== '1') {
+        html += `<div style="margin-top:6px">📝 <b>${redo.on ? 'Lần trước bạn ghi' : 'Vì sao'}:</b> ${escv(err.why)} <button data-tct="whyedit">sửa</button></div>`;
+      } else if (reason || box.dataset.whyOpen === '1' || box.dataset.whyEdit === '1') {
+        html += `<div style="margin-top:6px">${reason ? `<b>Câu quan trọng</b> (${reason}) – ` : ''}viết 1 dòng vì sao:</div>
+          <div style="display:flex;gap:6px;margin-top:4px"><input data-tcwhy="1" value="${escv(err.why || '')}" placeholder="${escv(whyMod.WHY_HINT)}" style="flex:1;min-width:0;padding:5px 8px;border-radius:6px;border:1px solid #6d9bff;background:rgba(0,0,0,.25);color:inherit;font:inherit"><button data-tct="whysave">Lưu</button></div>`;
+      } else {
+        html += `<div style="margin-top:6px"><button data-tct="whyopen">＋ ghi vì sao</button></div>`;
+      }
+    }
     const shortOpts = opts.filter((o) => /^[A-Za-z][A-Za-z'-]*( [A-Za-z][A-Za-z'-]*){0,2}$/.test(o.text));
     if (shortOpts.length && (!redo.on || redo.answered[q])) {
       html += `<div class="words" style="margin-top:6px">📖 Tra & lưu vào Parroto: ${shortOpts.map((o) => `<button data-tct="word" data-w="${o.text.replace(/"/g, '')}">${o.text.replace(/</g, '&lt;')}</button>`).join(' ')} <span style="opacity:.7">· hoặc bôi đen từ bất kỳ trong câu/giải thích</span></div>`;
@@ -476,11 +491,40 @@
       html += `<div style="margin-top:6px">🎧 Luyện kiểu hội thoại này trên Parroto (dictation rồi shadowing): ${pick.length ? pick.map(link).join(' · ') : lessons.length ? '<a href="https://parroto.app/topics/toeic-listening" target="_blank" style="color:#93c5fd">chọn bài cùng chủ đề</a>' : '<a href="https://parroto.app/topics/toeic-listening" target="_blank" style="color:#93c5fd">mở danh sách bài TOEIC Listening</a> một lần để extension đọc tên bài'}</div>`;
     }
     box.innerHTML = html;
+    const saveWhy = () => {
+      const input = box.querySelector('input[data-tcwhy]');
+      const e2 = errorFor(session, q);
+      const why = input ? input.value.trim() : '';
+      if (!e2 || !why) return;
+      e2.why = why;
+      send({ type: 'whyNote', session, q, why });
+      box.dataset.whyEdit = '';
+      box.dataset.whyOpen = '';
+      renderTools(box, session, q, block);
+    };
+    const whyInput = box.querySelector('input[data-tcwhy]');
+    if (whyInput) whyInput.addEventListener('keydown', (e) => { e.stopPropagation(); if (e.key === 'Enter') { e.preventDefault(); saveWhy(); } });
     box.onclick = (e) => {
       const b = e.target.closest('button[data-tct]');
       if (!b) return;
       e.preventDefault();
       e.stopPropagation();
+      if (b.dataset.tct === 'conf') {
+        const e2 = errorFor(session, q);
+        if (!e2) return;
+        const high = e2.confidence !== 'high';
+        e2.confidence = high ? 'high' : 'low';
+        send({ type: 'errorConf', session, q, high });
+        renderTools(box, session, q, block);
+        return;
+      }
+      if (b.dataset.tct === 'whyopen' || b.dataset.tct === 'whyedit') {
+        box.dataset[b.dataset.tct === 'whyopen' ? 'whyOpen' : 'whyEdit'] = '1';
+        renderTools(box, session, q, block);
+        box.querySelector('input[data-tcwhy]')?.focus();
+        return;
+      }
+      if (b.dataset.tct === 'whysave') { saveWhy(); return; }
       if (b.dataset.tct === 'drill') {
         send({ type: 'openDrill', kind: 'p5', focus: b.dataset.cat, n: 5 });
         return;

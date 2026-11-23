@@ -650,3 +650,54 @@ test('weekly review day includes the tip quiz', () => {
   assert.ok(days.length >= 3);
   for (const r of days) assert.ok(r.tasks.some((t) => t.id === 'tipquiz'));
 });
+
+test('progress proof: skill week, checkpoints, extra half test', async () => {
+  const { skillWeek, checkpoints, extraHalfSuggestion } = await import('../lib/progress.js');
+  const end = '2026-11-28';
+  const part = (date, p, c, t) => ({ kind: 'part', part: p, date, correct: c, total: t });
+  const results = [part('2026-11-18', 'P5', 15, 30), part('2026-11-18', 'P3', 20, 39), part('2026-11-25', 'P5', 22, 30), part('2026-11-25', 'P3', 26, 39),
+    { session: 'c1', date: '2026-11-19', parts: { P2: { correct: 15, total: 25 }, P5: { correct: 18, total: 30 } } },
+    { session: 'c2', date: '2026-11-26', parts: { P2: { correct: 19, total: 25 }, P5: { correct: 24, total: 30 } } }];
+  const log = [];
+  for (let i = 0; i < 10; i++) { log.push({ kind: 'p5', date: '2026-11-17', secs: 22, correct: true }); log.push({ kind: 'p5', date: '2026-11-26', secs: 16, correct: true }); }
+  const w = skillWeek(db({ results, drill: { items: {}, log } }), end);
+  const row = (k) => w.rows.find((r) => r.key === k);
+  assert.equal(row('L').trend, 'better');
+  assert.equal(row('R').trend, 'better');
+  assert.equal(row('p5secs').trend, 'better');
+  assert.ok(w.verdict.startsWith('Tuần này khá hơn'));
+  const cps = checkpoints(db({ results }));
+  assert.deepEqual(cps.map((c) => c.date), ['2026-11-19', '2026-11-26']);
+  assert.ok(cps[1].P5 > cps[0].P5);
+  // Extra half test: needs 2 full tests, all coded, < 10 redo due.
+  const fulls = [{ kind: 'full', date: '2026-11-21', L: 300, R: 280 }, { kind: 'full', date: '2026-11-28', L: 320, R: 290 }];
+  assert.ok(extraHalfSuggestion(db({ results: fulls }), end));
+  assert.equal(extraHalfSuggestion(db({ results: fulls.slice(0, 1) }), end), null);
+  const due = Array.from({ length: 12 }, (_, i) => ({ id: 'e' + i, date: '2026-11-20', redo: { stage: 0, due: '2026-11-22', done: false, history: [] } }));
+  assert.equal(extraHalfSuggestion(db({ results: fulls, errors: due }), end), null);
+});
+
+test('checkpoint task on days 4/11/19/26 and auto-done', () => {
+  const d4 = dateForDay(4, EXAM);
+  assert.ok(buildDay(db(), d4).tasks.some((t) => t.id === 'checkpoint'));
+  assert.ok(!buildDay(db(), dateForDay(5, EXAM)).tasks.some((t) => t.id === 'checkpoint'));
+  const done = buildDay(db({ results: [{ session: 'c', date: d4, parts: { P2: { correct: 1, total: 25 }, P5: { correct: 1, total: 30 } } }] }), d4);
+  assert.equal(done.tasks.find((t) => t.id === 'checkpoint').done, true);
+});
+
+test('why lines: important = confident or top recurring code', async () => {
+  const { recurringCodes, importantReason, missingWhy } = await import('../lib/why.js');
+  const d = '2026-11-23';
+  const errs = [
+    ...Array.from({ length: 4 }, (_, i) => ({ id: 'p' + i, code: 'P', date: d })),
+    ...Array.from({ length: 3 }, (_, i) => ({ id: 'v' + i, code: 'V', date: d })),
+    { id: 'g', code: 'G', date: d }, { id: 'g2', code: 'G', date: d, confidence: 'high' },
+    ...Array.from({ length: 5 }, (_, i) => ({ id: 'old' + i, code: 'A', date: '2026-10-01' })),
+  ];
+  assert.deepEqual(recurringCodes(errs, d), ['P', 'V']);
+  assert.ok(importantReason(errs[0], errs, d));
+  assert.equal(importantReason(errs.find((e) => e.id === 'g'), errs, d), null);
+  assert.equal(importantReason(errs.find((e) => e.id === 'g2'), errs, d), 'sai khi tự tin');
+  errs[0].why = 'đã ghi';
+  assert.equal(missingWhy(errs, d).length, 7 - 1 + 1);
+});

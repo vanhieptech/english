@@ -1,7 +1,7 @@
 {
   "manifest_version": 3,
   "name": "TOEIC Coach",
-  "version": "0.17.0",
+  "version": "0.19.0",
   "description": "Lộ trình TOEIC 30 ngày quanh Parroto: việc hôm nay, sổ lỗi, tự ghi nhận tiến độ. Dữ liệu chỉ nằm trên máy.",
   "permissions": [
     "storage",
@@ -58,6 +58,7 @@
         "lib/listen.js",
         "lib/p5type.js",
         "lib/tips.js",
+        "lib/why.js",
         "data/p5.js"
       ],
       "matches": [

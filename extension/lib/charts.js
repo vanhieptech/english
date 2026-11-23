@@ -4,7 +4,8 @@
 const esc = (s) => String(s ?? '').replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
 
 // Line chart on one shared y-axis. series: [{name, color, values: [number|null]}], labels: [string]
-export function lineChart({ labels, series, yMax, yMin = 0, height = 170, unit = '' }) {
+// bands: [{ values, pm, color }] draws a shaded ±pm area around each value (normal test-to-test noise).
+export function lineChart({ labels, series, yMax, yMin = 0, height = 170, unit = '', bands = [] }) {
   const W = 340;
   const H = height;
   const pad = { l: 34, r: 34, t: 12, b: 24 };
@@ -16,6 +17,18 @@ export function lineChart({ labels, series, yMax, yMin = 0, height = 170, unit =
   let svg = `<svg viewBox="0 0 ${W} ${H}" class="chart" role="img" aria-label="${esc(series.map((s) => s.name).join(', '))}">`;
   for (const t of ticks) svg += `<line x1="${pad.l}" x2="${W - pad.r}" y1="${y(t)}" y2="${y(t)}" class="grid"/><text x="${pad.l - 6}" y="${y(t) + 4}" class="axis" text-anchor="end">${t}</text>`;
   labels.forEach((l, i) => { svg += `<text x="${x(i)}" y="${H - 6}" class="axis" text-anchor="middle">${esc(l)}</text>`; });
+  for (const b of bands) {
+    const pts = b.values.map((v, i) => (v == null ? null : [x(i), v])).filter(Boolean);
+    if (pts.length) {
+      const clamp = (v) => Math.max(yMin, Math.min(yMax, v));
+      const up = pts.map(([px, v]) => `${px},${y(clamp(v + b.pm))}`);
+      const lo = pts.map(([px, v]) => `${px},${y(clamp(v - b.pm))}`).reverse();
+      const pad1 = pts.length === 1 ? 8 : 0;
+      svg += pts.length === 1
+        ? `<rect x="${pts[0][0] - pad1}" y="${y(clamp(pts[0][1] + b.pm))}" width="${pad1 * 2}" height="${y(clamp(pts[0][1] - b.pm)) - y(clamp(pts[0][1] + b.pm))}" fill="${b.color}" opacity="0.18"/>`
+        : `<polygon points="${[...up, ...lo].join(' ')}" fill="${b.color}" opacity="0.18"/>`;
+    }
+  }
   for (const s of series) {
     const pts = s.values.map((v, i) => (v == null ? null : [x(i), y(v), v, i])).filter(Boolean);
     if (pts.length > 1) svg += `<polyline points="${pts.map((p) => p[0] + ',' + p[1]).join(' ')}" fill="none" stroke="${s.color}" stroke-width="2" stroke-linejoin="round" stroke-linecap="round"/>`;

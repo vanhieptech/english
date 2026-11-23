@@ -12,6 +12,8 @@ import { suggestFor } from '../lib/autocode.js';
 import { renderMetrics } from './metrics-ui.js';
 import { lineChart, barChart, rateBars } from '../lib/charts.js';
 import { weekCompare } from '../lib/rules.js';
+import { skillWeek, checkpoints, extraHalfSuggestion } from '../lib/progress.js';
+import { missingWhy } from '../lib/why.js';
 import { newWordsOn, reviewsOn, vocabDay } from '../lib/vocab.js';
 import { initDrill, renderDrill, handleClick as drillClick, handleKey as drillKey, stopDrillMedia, resumeDrill, startExternal } from './drill-ui.js';
 
@@ -115,6 +117,9 @@ function renderToday() {
       <div style="flex-basis:100%" class="progressbar"><div style="width:${r.tasks.length ? (doneN / r.tasks.length) * 100 : 0}%"></div></div>
     </div>`;
   for (const n of r.notices) html += `<div class="card notice">${esc(n)}</div>`;
+  html += renderProgressCard(d);
+  const extra = extraHalfSuggestion(db, d);
+  if (extra && !r.tasks.some((t) => ['full', 'halfL', 'halfR'].includes(t.id))) html += `<div class="card notice">➕ ${esc(extra.text)}</div>`;
   const missing = missingFromHistory(db);
   if (missing.length) {
     html += `<div class="card notice"><b>${missing.length} lần làm bài trên Parroto chưa được đọc kết quả.</b> Mở từng trang kết quả để extension ghi lại:
@@ -156,6 +161,17 @@ function renderToday() {
   html += `<h2>Thời gian trên Parroto hôm nay</h2><div class="card">${rows.length ? rows.map(([k, v]) => `<div>${esc(cats[k] || k)}: <b>${Math.round(v / 60)}'</b></div>`).join('') : '<span class="muted small">Chưa có. Extension chỉ đếm khi tab Parroto đang mở và bạn đang thao tác (rảnh quá 2 phút thì ngừng đếm).</span>'}</div>`;
   html += `<h3>Ghi chú hôm nay</h3><textarea data-daily="note" placeholder="Hôm nay sai gì, vì sao (2 phút)">${esc(daily.note || '')}</textarea>`;
   el.innerHTML = html;
+}
+
+// Skill indicators this week vs last week, shown at the top of Hôm nay.
+function renderProgressCard(d) {
+  const w = skillWeek(db, d);
+  const rows = w.rows.filter((x) => x.cur != null || x.prev != null);
+  const arrow = (t) => (t === 'better' ? '<span class="delta-up">▲</span>' : t === 'worse' ? '<span class="delta-down">▼</span>' : t === 'same' ? '<span class="muted small">=</span>' : '');
+  return `<details class="card" ${w.compared >= 2 ? 'open' : ''}><summary><b>Tiến bộ kỹ năng: 7 ngày qua vs 7 ngày trước</b>${w.compared ? ` · <span class="delta-up">${w.better} lên</span> / <span class="delta-down">${w.worse} xuống</span>` : ''}</summary>
+    <div class="small" style="margin:6px 0">${esc(w.verdict)}</div>
+    ${rows.length ? `<table><tr><th></th><th class="num">Trước</th><th class="num">Nay</th></tr>${rows.map((x) => `<tr><td>${esc(x.label)}</td><td class="num muted">${esc(x.prevText)}</td><td class="num"><b>${esc(x.curText)}</b> ${arrow(x.trend)}</td></tr>`).join('')}</table>` : ''}
+    <div class="muted small" style="margin-top:4px">▲ xanh = tốt hơn (giây/câu và số lần nghe lại: thấp hơn là tốt). Bài mốc và đường điểm đề full ở tab Tiến độ.</div></details>`;
 }
 
 function renderWeekCard(w) {
@@ -326,10 +342,17 @@ function renderErrors() {
 
   el.innerHTML = `
     ${renderPending()}
+    ${(() => {
+      const miss = missingWhy(db.errors, d);
+      if (!miss.length) return '';
+      return `<div class="card notice"><b>${miss.length} câu sai quan trọng chưa có dòng "vì sao"</b> (sai khi tự tin, hoặc mã lỗi đang lặp nhiều nhất). Mở trang kết quả, viết 1 dòng ngay dưới câu đó:
+        ${miss.slice(0, 5).map((e) => `<div class="small" style="margin-top:4px">${esc(setName(e.set))} T${e.test} · ${e.part} câu ${e.q || '?'} <span class="tag">${e.code}${e.confidence === 'high' ? '!' : ''}</span> ${e.srcKey ? `<button class="btn" data-open="${esc(LINKS.result(e.srcKey.split('|')[0]))}">Mở kết quả</button>` : ''}</div>`).join('')}</div>`;
+    })()}
     <h2>Đến hạn làm lại (${due.length})</h2>
     ${due.length ? due.map((e) => `<div class="card">
         <div><b>${esc(setName(e.set))} T${e.test} · ${e.part} câu ${e.q || '?'}</b> <span class="tag">${e.code}</span> <span class="muted small">lần ${e.redo.stage + 1}/2 · ghi ${formatVN(e.date)}</span></div>
         ${e.cause ? `<div class="muted small">${esc(e.cause)}</div>` : ''}
+        ${e.why ? `<details class="small" style="margin-top:4px"><summary>📝 Dòng "vì sao" bạn đã ghi (mở sau khi làm lại)</summary>${esc(e.why)}</details>` : ''}
         <div class="muted small">${e.srcKey ? `Mở trang kết quả → tab ${e.part} → bấm "Làm lại câu sai" trên thanh TOEIC Coach. Kết quả tự ghi vào lịch.` : `Mở đề → Practice Mode → Select Parts: ${e.part} → tới câu ${e.q || '?'}. Làm lại, chưa xem giải thích.`}</div>
         <div class="actions" style="display:flex;gap:6px;margin-top:6px">
           ${e.srcKey ? `<button class="btn primary" data-open="${esc(LINKS.result(e.srcKey.split('|')[0]))}">Làm lại trên Parroto</button>` : `<button class="btn" data-open="${esc(LINKS.test(e.set, e.test))}">Mở đề</button>`}
@@ -482,7 +505,22 @@ function renderDashboardTop(d, trend, acc7) {
       ],
       yMin: 0, yMax: 495,
     })}<div class="muted small">Tổng điểm ở bảng bên dưới. Hai đề chênh dưới ~40 điểm coi là nhiễu.</div></div>`;
+    html += `<h2>Tổng điểm đề full (dải ±35 = dao động bình thường)</h2><div class="card">${lineChart({
+      labels: trend.map((m) => formatVN(m.date).slice(3)),
+      series: [{ name: 'Tổng điểm', color: 'var(--series-1)', values: trend.map((m) => m.total) }],
+      bands: [{ values: trend.map((m) => m.total), pm: 35, color: 'var(--series-1)' }],
+      yMin: Math.max(0, Math.min(...trend.map((m) => m.total)) - 100), yMax: Math.min(990, Math.max(...trend.map((m) => m.total), 800) + 50),
+    })}<div class="muted small">Một đề nằm trong vùng mờ của đề trước = chưa chắc đã lên/xuống. Tiến bộ thật là khi 2 đề liền nằm trên vùng mờ cũ.</div></div>`;
   }
+  const cps = checkpoints(db);
+  html += `<h2>Bài mốc P2 + P5 (20 phút, cùng định dạng)</h2><div class="card">${cps.length ? lineChart({
+    labels: cps.map((c) => formatVN(c.date).slice(3)),
+    series: [
+      { name: 'Part 2', color: 'var(--series-1)', values: cps.map((c) => Math.round(c.P2 * 100)) },
+      { name: 'Part 5', color: 'var(--series-2)', values: cps.map((c) => Math.round(c.P5 * 100)) },
+    ],
+    yMin: 0, yMax: 100, unit: '%',
+  }) : '<div class="small muted">Chưa có bài mốc. Lịch có bài mốc ngày 4, 11, 19, 26: trên Parroto chọn một đề chưa làm, Test Mode, chỉ tích Part 2 và Part 5.</div>'}</div>`;
 
   // Minutes studied vs planned, last 14 days.
   const days14 = lastNDays(d, 14);
